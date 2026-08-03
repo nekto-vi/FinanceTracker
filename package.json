@@ -5,6 +5,7 @@
   "dependencies": {
     "@expo/ui": "~57.0.8",
     "expo": "~57.0.9",
+    "expo-blur": "~57.0.2",
     "expo-constants": "~57.0.8",
     "expo-device": "~57.0.1",
     "expo-font": "~57.0.1",
