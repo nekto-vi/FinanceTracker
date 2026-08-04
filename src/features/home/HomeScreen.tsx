@@ -4,6 +4,7 @@ import { ProfitChart } from '@/features/components/ProfitChart';
 import { ExpenseGrid } from '@/features/components/ExpenseGrid';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AIAgentFab } from '../components/AIAgentFab';
 
 const CHART_DATA = [
   {
@@ -145,9 +146,11 @@ export default function HomeScreen() {
           />
         </ScrollView>
       </View>
+      <AIAgentFab /> 
     </SafeAreaView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
