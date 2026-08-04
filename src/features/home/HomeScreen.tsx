@@ -169,14 +169,14 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: FinanceColors.card,
     borderRadius: 25,
-    marginTop: 10,
+    marginTop: 5,
     overflow: 'hidden',
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginTop: 25,
-    marginBottom: 15,
+    marginTop: 15,
+    marginBottom: 8,
   },
   accountsRow: {
     flexDirection: 'row',
