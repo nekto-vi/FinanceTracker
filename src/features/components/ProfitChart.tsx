@@ -41,9 +41,6 @@ export function ProfitChart({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.label}>Текущий баланс</Text>
-        <Text style={styles.balance}>{formatNumber(currentBalance)} {currency}</Text>
-
         <Text style={styles.label}>Общая прибыль за месяц</Text>
         <Text style={styles.profit}>+{formatNumber(monthlyProfit)} {currency}</Text>
       </View>
@@ -143,7 +140,7 @@ const styles = StyleSheet.create({
   },
   chartWrapper: {
     flexDirection: 'row',
-    height: 180,
+    height: 150,
     marginTop: 10,
   },
   yAxis: {
@@ -173,7 +170,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     height: '100%',
-    paddingBottom: 24,
+    paddingBottom: 20,
     paddingHorizontal: 4,
   },
   barWrapper: {

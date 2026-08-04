@@ -1,8 +1,9 @@
 import { FinanceColors } from '@/constants/theme';
 import { AccountCard } from '@/features/components/AccountCard';
 import { ProfitChart } from '@/features/components/ProfitChart';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ExpenseGrid } from '@/features/components/ExpenseGrid';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 const CHART_DATA = [
   {
@@ -59,6 +60,18 @@ const CHART_DATA = [
   },
 ];
 
+const EXPENSE_CATEGORIES = [
+  { id: 'food', name: 'Еда', icon: '🍔', color: '#FF9500', amount: 120 },
+  { id: 'transport', name: 'Транспорт', icon: '🚗', color: '#FF3B30', amount: 45 },
+  { id: 'shopping', name: 'Шоппинг', icon: '🛍️', color: '#FF2D92', amount: 210 },
+  { id: 'health', name: 'Здоровье', icon: '💊', color: '#FF6B35', amount: 15 },
+  { id: 'home', name: 'Дом', icon: '🏠', color: '#C75B39', amount: 80 },
+  { id: 'sport', name: 'Спорт', icon: '🏀', color: '#F5A623', amount: 60 },
+  { id: 'mobile', name: 'Связь', icon: '📱', color: '#5856D6', amount: 25 },
+  { id: 'entertainment', name: 'Отдых', icon: '🍿', color: '#FF6482', amount: 110 },
+  { id: 'gifts', name: 'Подарки', icon: '🎁', color: '#E83F3F', amount: 50 },
+];
+
 export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -87,7 +100,11 @@ export default function HomeScreen() {
         </View>
 
         <Text style={styles.sectionTitle}>Расходы</Text>
-        <Text style={{ color: 'grey' }}>Сетка расходов (в разработке...)</Text>
+        <ExpenseGrid
+          categories={EXPENSE_CATEGORIES}
+          onCategoryPress={(id) => console.log('Категория:', id)}
+          onAddPress={() => console.log('Добавить категорию')}
+        />
 
         <View style={{ height: 40 }} />
       </ScrollView>
