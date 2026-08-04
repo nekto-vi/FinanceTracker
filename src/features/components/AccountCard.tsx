@@ -38,10 +38,10 @@ const styles = StyleSheet.create({
   },
   title: {
     color: FinanceColors.textMuted,
-    fontSize: 11,
+    fontSize: 12,
   },
   amount: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
     color: FinanceColors.textPrimary,
   },
