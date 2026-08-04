@@ -24,6 +24,16 @@ export const Colors = {
   },
 } as const;
 
+export const FinanceColors = {
+  backgroundGrouped: '#F2F2F7',
+  card: '#FFFFFF',
+  accent: '#007AFF',
+  textMuted: '#8E8E93',
+  textPrimary: '#000000',
+  textSecondary: '#60646C',
+  shadow: 'rgba(0, 0, 0, 0.08)',
+} as const;
+
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({
