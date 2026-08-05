@@ -7,6 +7,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AIAgentFab } from '../components/AIAgentFab';
 import { AddCategoryModal } from './components/AddCategoryModal';
 import { useState } from 'react';
+import { MonthPicker } from './components/MonthPicker';
 
 const CHART_DATA = [
   {
@@ -109,6 +110,10 @@ const EXPENSE_CATEGORIES = [
 ];
 
 export default function HomeScreen() {
+    const handleMonthChange = (index: number) => {
+    console.log('Выбран месяц с индексом:', index);
+    // Здесь позже будем фильтровать данные
+  };
   const [isAddModalVisible, setAddModalVisible] = useState(false);
 
   const handleAddCategory = (newCat: any) => {
@@ -122,7 +127,7 @@ export default function HomeScreen() {
       <View style={styles.wrapper}>
         <View>
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Июль</Text>
+            <MonthPicker onMonthChange={handleMonthChange} />
           </View>
 
           <View style={styles.card}>
