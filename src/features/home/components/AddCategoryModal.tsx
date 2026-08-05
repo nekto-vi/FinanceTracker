@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, Modal, TextInput, 
-  TouchableOpacity, Dimensions, ScrollView, KeyboardAvoidingView, Platform 
+  TouchableOpacity, Dimensions, ScrollView, Platform 
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,12 +9,12 @@ import Animated, {
   useSharedValue, 
   useAnimatedStyle, 
   withTiming, 
-  Easing,
   runOnJS 
 } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const MODAL_HEIGHT = (SCREEN_HEIGHT * 3) / 4;
+const MODAL_HEIGHT = (SCREEN_HEIGHT * 2.8) / 4;
 
 const PASTEL_COLORS = [
   '#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#D4BAFF', '#FFBAF2',
@@ -34,24 +34,18 @@ export function AddCategoryModal({ isVisible, onClose, onConfirm }: Props) {
   const [icon, setIcon] = useState('?');
   const [selectedColor, setSelectedColor] = useState(PASTEL_COLORS[0]);
   
-  // Анимационные значения
   const translateY = useSharedValue(SCREEN_HEIGHT);
   const opacity = useSharedValue(0);
 
   const showModal = useCallback(() => {
-    opacity.value = withTiming(1, { duration: 300 });
-    translateY.value = withTiming(0, { 
-      duration: 400, 
-      easing: Easing.out(Easing.back(0.5)) 
-    });
+    opacity.value = withTiming(1, { duration: 250 });
+    translateY.value = withTiming(0, { duration: 300 });
   }, []);
 
   const hideModal = useCallback(() => {
-    opacity.value = withTiming(0, { duration: 250 });
-    translateY.value = withTiming(SCREEN_HEIGHT, { duration: 300 }, (finished) => {
-      if (finished) {
-        runOnJS(onClose)();
-      }
+    opacity.value = withTiming(0, { duration: 200 });
+    translateY.value = withTiming(SCREEN_HEIGHT, { duration: 250 }, (finished) => {
+      if (finished) runOnJS(onClose)();
     });
   }, [onClose]);
 
@@ -64,55 +58,46 @@ export function AddCategoryModal({ isVisible, onClose, onConfirm }: Props) {
     }
   }, [isVisible, showModal]);
 
-  // Анимированные стили
-  const animatedOverlayStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
+  // ЖЕСТ: Закрытие притягиванием вниз
+  const panGesture = Gesture.Pan()
+    .onUpdate((e) => {
+      if (e.translationY > 0) {
+        translateY.value = e.translationY;
+      }
+    })
+    .onEnd((e) => {
+      if (e.translationY > 120 || e.velocityY > 600) {
+        runOnJS(hideModal)();
+      } else {
+        translateY.value = withTiming(0, { duration: 200 });
+      }
+    });
 
-  const animatedSheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-  }));
+  const animatedOverlayStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  const animatedSheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
 
   if (!isVisible && opacity.value === 0) return null;
 
   return (
-    <Modal
-      transparent={true}
-      visible={isVisible}
-      animationType="none" // Отключаем стандартную анимацию
-      onRequestClose={hideModal}
-    >
+    <Modal transparent visible={isVisible} animationType="none" onRequestClose={hideModal}>
       <View style={styles.root}>
-        {/* Анимированный фон (Overlay) */}
         <Animated.View style={[styles.overlay, animatedOverlayStyle]}>
-          <TouchableOpacity 
-            style={styles.dismissArea} 
-            onPress={hideModal} 
-            activeOpacity={1} 
-          />
+          <TouchableOpacity style={styles.dismissArea} onPress={hideModal} activeOpacity={1} />
         </Animated.View>
         
-        <KeyboardAvoidingView 
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalContainer}
-        >
-          {/* Анимированная шторка */}
+        <GestureDetector gesture={panGesture}>
           <Animated.View style={[styles.sheet, animatedSheetStyle]}>
             <View style={styles.handle} />
             
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Preview Section */}
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <View style={styles.previewContainer}>
-                <Text style={styles.previewLabel} numberOfLines={1}>
-                  {name.trim() === '' ? 'Название' : name}
-                </Text>
+                <Text style={styles.previewLabel}>{name.trim() === '' ? 'Название' : name}</Text>
                 <View style={[styles.previewCircle, { backgroundColor: selectedColor }]}>
                   <Text style={styles.previewIcon}>{icon}</Text>
                 </View>
                 <Text style={styles.previewAmount}>0 BYN</Text>
               </View>
 
-              {/* Inputs */}
               <View style={styles.inputRow}>
                 <TextInput
                   style={styles.nameInput}
@@ -127,14 +112,14 @@ export function AddCategoryModal({ isVisible, onClose, onConfirm }: Props) {
                   placeholder="😃"
                   value={icon === '?' ? '' : icon}
                   onChangeText={(text) => {
-                    const lastChar = text.trim().slice(-1);
-                    setIcon(lastChar || '?');
+                    const emojis = Array.from(text.trim());
+                    setIcon(emojis.length > 0 ? emojis[emojis.length - 1] : '?');
                   }}
-                  maxLength={2}
+                  caretHidden={true}
+                  selectionColor="transparent"
                 />
               </View>
 
-              {/* Colors Grid */}
               <Text style={styles.sectionTitle}>Выберите цвет</Text>
               <View style={styles.colorGrid}>
                 {PASTEL_COLORS.map((color) => (
@@ -150,7 +135,6 @@ export function AddCategoryModal({ isVisible, onClose, onConfirm }: Props) {
                 ))}
               </View>
 
-              {/* Liquid Glass Button */}
               <TouchableOpacity 
                 style={styles.buttonWrapper}
                 onPress={() => onConfirm({ name, icon, color: selectedColor })}
@@ -167,7 +151,7 @@ export function AddCategoryModal({ isVisible, onClose, onConfirm }: Props) {
               <View style={{ height: 40 }} />
             </ScrollView>
           </Animated.View>
-        </KeyboardAvoidingView>
+        </GestureDetector>
       </View>
     </Modal>
   );
@@ -182,14 +166,9 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.4)',
   },
-  dismissArea: {
-    flex: 1,
-  },
-  modalContainer: {
-    height: MODAL_HEIGHT,
-  },
+  dismissArea: { flex: 1 },
   sheet: {
-    flex: 1,
+    height: MODAL_HEIGHT,
     backgroundColor: 'white',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
@@ -204,18 +183,12 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: 20,
   },
-  previewContainer: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
+  previewContainer: { alignItems: 'center', marginBottom: 20 },
   previewLabel: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#000',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#8E8E93',
     marginBottom: 8,
-    textAlign: 'center',
-    width: '100%',
-    paddingHorizontal: 10,
   },
   previewCircle: {
     width: 70,
@@ -224,20 +197,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
   },
-  previewIcon: {
-    fontSize: 32,
-  },
-  previewAmount: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#8E8E93'
-  },
+  previewIcon: { fontSize: 32 },
+  previewAmount: { fontSize: 13, fontWeight: '700', color: '#C7C7CC' },
   inputRow: {
     flexDirection: 'row',
     backgroundColor: '#F2F2F7',
@@ -247,30 +209,15 @@ const styles = StyleSheet.create({
     height: 54,
     marginBottom: 24,
   },
-  nameInput: {
-    flex: 1,
-    fontSize: 16,
-    color: '#000',
-  },
-  emojiInput: {
-    width: 40,
-    fontSize: 24,
-    textAlign: 'center',
-    borderLeftWidth: 1,
-    borderLeftColor: '#D1D1D6',
-    marginLeft: 10,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 16,
-  },
+  nameInput: { flex: 1, fontSize: 16, color: '#000' },
+  emojiInput: { width: 45, fontSize: 26, textAlign: 'center', marginLeft: 10 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 16 },
   colorGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     gap: 12,
-    marginLeft: 2,
+    paddingLeft: 2, // ТОТ САМЫЙ ОТСТУП СЛЕВА
   },
   colorCircle: {
     width: 38,
@@ -287,16 +234,11 @@ const styles = StyleSheet.create({
     marginTop: 32,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: "#6D6BA1",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
   },
   liquidButton: {
     height: 60,
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
   },
   buttonText: {
     color: 'white',
