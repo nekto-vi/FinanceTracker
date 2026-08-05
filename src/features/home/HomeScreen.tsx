@@ -5,6 +5,9 @@ import { ExpenseGrid } from '@/features/components/ExpenseGrid';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AIAgentFab } from '../components/AIAgentFab';
+import { AddCategoryModal } from './components/AddCategoryModal';
+import { useState } from 'react';
+import { MonthPicker } from './components/MonthPicker';
 
 const CHART_DATA = [
   {
@@ -107,12 +110,24 @@ const EXPENSE_CATEGORIES = [
 ];
 
 export default function HomeScreen() {
+    const handleMonthChange = (index: number) => {
+    console.log('Выбран месяц с индексом:', index);
+    // Здесь позже будем фильтровать данные
+  };
+  const [isAddModalVisible, setAddModalVisible] = useState(false);
+
+  const handleAddCategory = (newCat: any) => {
+    console.log('Создаем категорию:', newCat);
+    // Здесь будет логика сохранения в твой стейт или БД
+    setAddModalVisible(false);
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.wrapper}>
         <View>
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Июль</Text>
+            <MonthPicker onMonthChange={handleMonthChange} />
           </View>
 
           <View style={styles.card}>
@@ -142,10 +157,15 @@ export default function HomeScreen() {
           <ExpenseGrid
             categories={EXPENSE_CATEGORIES}
             onCategoryPress={(id) => console.log('Категория:', id)}
-            onAddPress={() => console.log('Добавить категорию')}
+            onAddPress={() => setAddModalVisible(true)}
           />
         </ScrollView>
       </View>
+      <AddCategoryModal 
+        isVisible={isAddModalVisible}
+        onClose={() => setAddModalVisible(false)}
+        onConfirm={handleAddCategory}
+      />
       <AIAgentFab /> 
     </SafeAreaView>
   );
