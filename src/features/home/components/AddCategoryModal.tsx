@@ -1,0 +1,307 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { 
+  View, Text, StyleSheet, Modal, TextInput, 
+  TouchableOpacity, Dimensions, ScrollView, KeyboardAvoidingView, Platform 
+} from 'react-native';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import Animated, { 
+  useSharedValue, 
+  useAnimatedStyle, 
+  withTiming, 
+  Easing,
+  runOnJS 
+} from 'react-native-reanimated';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const MODAL_HEIGHT = (SCREEN_HEIGHT * 3) / 4;
+
+const PASTEL_COLORS = [
+  '#FFB3BA', '#FFDFBA', '#FFFFBA', '#BAFFC9', '#BAE1FF', '#D4BAFF', '#FFBAF2',
+  '#FF9AA2', '#FFB7B2', '#FFDAC1', '#E2F0CB', '#B5EAD7', '#C7CEEA', '#F3D1F4',
+  '#F8B195', '#F67280', '#C06C84', '#6C5B7B', '#355C7D', '#99B443', '#E3AFBC',
+  '#A8E6CF', '#DCEDC1', '#FFD3B6', '#FFAAA5', '#FF8B94', '#D1D1D1', '#A2A2A2',
+];
+
+interface Props {
+  isVisible: boolean;
+  onClose: () => void;
+  onConfirm: (category: { name: string; icon: string; color: string }) => void;
+}
+
+export function AddCategoryModal({ isVisible, onClose, onConfirm }: Props) {
+  const [name, setName] = useState('');
+  const [icon, setIcon] = useState('?');
+  const [selectedColor, setSelectedColor] = useState(PASTEL_COLORS[0]);
+  
+  // Анимационные значения
+  const translateY = useSharedValue(SCREEN_HEIGHT);
+  const opacity = useSharedValue(0);
+
+  const showModal = useCallback(() => {
+    opacity.value = withTiming(1, { duration: 300 });
+    translateY.value = withTiming(0, { 
+      duration: 400, 
+      easing: Easing.out(Easing.back(0.5)) 
+    });
+  }, []);
+
+  const hideModal = useCallback(() => {
+    opacity.value = withTiming(0, { duration: 250 });
+    translateY.value = withTiming(SCREEN_HEIGHT, { duration: 300 }, (finished) => {
+      if (finished) {
+        runOnJS(onClose)();
+      }
+    });
+  }, [onClose]);
+
+  useEffect(() => {
+    if (isVisible) {
+      setName('');
+      setIcon('?');
+      setSelectedColor(PASTEL_COLORS[0]);
+      showModal();
+    }
+  }, [isVisible, showModal]);
+
+  // Анимированные стили
+  const animatedOverlayStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
+
+  const animatedSheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  if (!isVisible && opacity.value === 0) return null;
+
+  return (
+    <Modal
+      transparent={true}
+      visible={isVisible}
+      animationType="none" // Отключаем стандартную анимацию
+      onRequestClose={hideModal}
+    >
+      <View style={styles.root}>
+        {/* Анимированный фон (Overlay) */}
+        <Animated.View style={[styles.overlay, animatedOverlayStyle]}>
+          <TouchableOpacity 
+            style={styles.dismissArea} 
+            onPress={hideModal} 
+            activeOpacity={1} 
+          />
+        </Animated.View>
+        
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalContainer}
+        >
+          {/* Анимированная шторка */}
+          <Animated.View style={[styles.sheet, animatedSheetStyle]}>
+            <View style={styles.handle} />
+            
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Preview Section */}
+              <View style={styles.previewContainer}>
+                <Text style={styles.previewLabel} numberOfLines={1}>
+                  {name.trim() === '' ? 'Название' : name}
+                </Text>
+                <View style={[styles.previewCircle, { backgroundColor: selectedColor }]}>
+                  <Text style={styles.previewIcon}>{icon}</Text>
+                </View>
+                <Text style={styles.previewAmount}>0 BYN</Text>
+              </View>
+
+              {/* Inputs */}
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={styles.nameInput}
+                  placeholder="Введите название категории"
+                  placeholderTextColor="#C7C7CC"
+                  value={name}
+                  onChangeText={setName}
+                  maxLength={20}
+                />
+                <TextInput
+                  style={styles.emojiInput}
+                  placeholder="😃"
+                  value={icon === '?' ? '' : icon}
+                  onChangeText={(text) => {
+                    const lastChar = text.trim().slice(-1);
+                    setIcon(lastChar || '?');
+                  }}
+                  maxLength={2}
+                />
+              </View>
+
+              {/* Colors Grid */}
+              <Text style={styles.sectionTitle}>Выберите цвет</Text>
+              <View style={styles.colorGrid}>
+                {PASTEL_COLORS.map((color) => (
+                  <TouchableOpacity
+                    key={color}
+                    onPress={() => setSelectedColor(color)}
+                    style={[
+                      styles.colorCircle,
+                      { backgroundColor: color },
+                      selectedColor === color && styles.colorCircleSelected
+                    ]}
+                  />
+                ))}
+              </View>
+
+              {/* Liquid Glass Button */}
+              <TouchableOpacity 
+                style={styles.buttonWrapper}
+                onPress={() => onConfirm({ name, icon, color: selectedColor })}
+              >
+                <LinearGradient
+                  colors={['rgba(124, 123, 173, 0.9)', 'rgba(109, 107, 161, 0.9)']}
+                  style={styles.liquidButton}
+                >
+                  <BlurView intensity={20} style={StyleSheet.absoluteFill} />
+                  <Text style={styles.buttonText}>Создать категорию</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+              
+              <View style={{ height: 40 }} />
+            </ScrollView>
+          </Animated.View>
+        </KeyboardAvoidingView>
+      </View>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  dismissArea: {
+    flex: 1,
+  },
+  modalContainer: {
+    height: MODAL_HEIGHT,
+  },
+  sheet: {
+    flex: 1,
+    backgroundColor: 'white',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+  },
+  handle: {
+    width: 40,
+    height: 5,
+    backgroundColor: '#E5E5EA',
+    borderRadius: 2.5,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  previewContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  previewLabel: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 8,
+    textAlign: 'center',
+    width: '100%',
+    paddingHorizontal: 10,
+  },
+  previewCircle: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  previewIcon: {
+    fontSize: 32,
+  },
+  previewAmount: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#8E8E93'
+  },
+  inputRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F2F2F7',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    height: 54,
+    marginBottom: 24,
+  },
+  nameInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#000',
+  },
+  emojiInput: {
+    width: 40,
+    fontSize: 24,
+    textAlign: 'center',
+    borderLeftWidth: 1,
+    borderLeftColor: '#D1D1D6',
+    marginLeft: 10,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  colorGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginLeft: 2,
+  },
+  colorCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  colorCircleSelected: {
+    borderColor: '#007AFF',
+    transform: [{ scale: 1.1 }],
+  },
+  buttonWrapper: {
+    marginTop: 32,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: "#6D6BA1",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+  },
+  liquidButton: {
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 17,
+    fontWeight: '600',
+    zIndex: 1,
+  },
+});
