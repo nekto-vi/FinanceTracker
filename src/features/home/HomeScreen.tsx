@@ -100,15 +100,18 @@ const CHART_DATA = [
 
 export default function HomeScreen() {
   // 1. Стейты
- const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null); 
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const [isAddCatModalVisible, setAddCatModalVisible] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   
-  const fetchData = async () => {
+  const fetchData = async (month: number) => {
   try {
-    const catsRes = await fetch('http://127.0.0.1:8000/categories');
+    console.log(`Загрузка данных за месяц: ${month}`);
+
+    const catsRes = await fetch(`http://127.0.0.1:8000/categories?month=${month}`);
     const catsText = await catsRes.text();
     console.log('Raw Categories Response:', catsText); 
     const catsData = JSON.parse(catsText); 
@@ -121,24 +124,26 @@ export default function HomeScreen() {
     setCategories(catsData.map((c: any) => ({ ...c, icon: c.emoji })));
     setAccounts(accsData);
     
-    if (accsData.length > 0 && !selectedAccountId) {
-      setSelectedAccountId(accsData[0].id);
+    if (accsData.length > 0 && selectedAccountId === null) {
+        setSelectedAccountId(accsData[0].id);
+      }
+    } catch (e) {
+      console.error("Ошибка при загрузке данных:", e);
     }
-  } catch (e) {
-    console.error("Ошибка при загрузке данных:", e);
-  }
 };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+      fetchData(selectedMonth);
+    }, []); 
+
+  const handleMonthChange = (index: number) => {
+    const monthNumber = index + 1;
+    setSelectedMonth(monthNumber);
+    fetchData(monthNumber); 
+  };
 
 const handleSaveExpense = async (amount: number) => {
-    if (!selectedAccountId || !selectedCategory) {
-      alert("Сначала выберите счет и категорию!");
-      return;
-    }
-
+    if (!selectedAccountId || !selectedCategory) return;
     try {
       const response = await fetch('http://127.0.0.1:8000/transactions', {
         method: 'POST',
@@ -152,7 +157,7 @@ const handleSaveExpense = async (amount: number) => {
       });
 
       if (response.ok) {
-        fetchData(); 
+        fetchData(selectedMonth); 
         setSelectedCategory(null);
       }
     } catch (e) {
@@ -164,11 +169,19 @@ const handleSaveExpense = async (amount: number) => {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.wrapper}>
         <View style={styles.header}>
-            <MonthPicker onMonthChange={(i) => console.log(i)} />
+            <MonthPicker onMonthChange={handleMonthChange}/>
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false}>
-          {}
+          <View style={styles.card}>
+            <ProfitChart
+              currentBalance={500}
+              monthlyProfit={3400}
+              weekRange="1 – 7 июля"
+              data={CHART_DATA} 
+              currency="BYN"
+            />
+          </View>
 
           <Text style={styles.sectionTitle}>Счета</Text>
           <View style={styles.accountsRow}>
@@ -206,7 +219,7 @@ const handleSaveExpense = async (amount: number) => {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(newCat)
             });
-            fetchData();
+            fetchData(selectedMonth);
             setAddCatModalVisible(false);
         }}
       />
