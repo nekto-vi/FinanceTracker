@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,29 +20,31 @@ const MONTHS = [
 
 interface Props {
   onMonthChange?: (index: number) => void;
+  selectedMonth: number; 
 }
 
-export function MonthPicker({ onMonthChange }: Props) {
-  const [activeIndex, setActiveIndex] = useState(new Date().getMonth());
+export function MonthPicker({ onMonthChange, selectedMonth }: Props) {
   const flatListRef = useRef<FlatList>(null);
+  const lastTrackedIndex = useRef(selectedMonth - 1);
 
-  // Скроллим к текущему месяцу при первой загрузке
   useEffect(() => {
-    setTimeout(() => {
+    const targetIndex = selectedMonth - 1;
+    if (targetIndex !== lastTrackedIndex.current) {
+      lastTrackedIndex.current = targetIndex;
       flatListRef.current?.scrollToIndex({
-        index: activeIndex,
-        animated: false,
+        index: targetIndex,
+        animated: true,
       });
-    }, 100);
-  }, []);
+    }
+  }, [selectedMonth]);
 
-  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+  const handleMomentumScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const scrollOffset = event.nativeEvent.contentOffset.x;
     const index = Math.round(scrollOffset / ITEM_WIDTH);
     
-    if (index !== activeIndex && index >= 0 && index < MONTHS.length) {
-      setActiveIndex(index);
-      onMonthChange?.(index);
+    if (index !== lastTrackedIndex.current && index >= 0 && index < MONTHS.length) {
+      lastTrackedIndex.current = index;
+      onMonthChange?.(index); 
     }
   };
 
@@ -54,11 +56,12 @@ export function MonthPicker({ onMonthChange }: Props) {
         keyExtractor={(item) => item}
         horizontal
         showsHorizontalScrollIndicator={false}
-        pagingEnabled // Чтобы листалось по одному
+        pagingEnabled
         snapToInterval={ITEM_WIDTH}
         decelerationRate="fast"
-        onScroll={handleScroll}
+        onMomentumScrollEnd={handleMomentumScrollEnd} 
         scrollEventThrottle={16}
+        initialScrollIndex={selectedMonth - 1} 
         renderItem={({ item }) => (
           <View style={styles.monthWrapper}>
             <Text style={styles.monthText}>{item} {currentYear}</Text>
@@ -78,8 +81,6 @@ const styles = StyleSheet.create({
   container: {
     height: 40,
     width: ITEM_WIDTH,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   monthWrapper: {
     width: ITEM_WIDTH,
@@ -88,7 +89,8 @@ const styles = StyleSheet.create({
   },
   monthText: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#000',
+    letterSpacing: 0.5,
   },
 });

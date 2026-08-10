@@ -3,65 +3,117 @@ import { AccountCard } from '@/features/components/AccountCard';
 import { ChartDay, ProfitChart } from '@/features/components/ProfitChart';
 import { ExpenseGrid } from '@/features/components/ExpenseGrid';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, Alert } from 'react-native';
 import { AIAgentFab } from '../components/AIAgentFab';
 import { AddCategoryModal } from './components/AddCategoryModal';
 import { useState, useEffect } from 'react';
 import { MonthPicker } from './components/MonthPicker';
 import { AddExpenseModal } from '@/features/home/AddExpenseModal';
 
+const formatDateForBack = (date: Date) => {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+
 export default function HomeScreen() {
+  const [currentMonday, setCurrentMonday] = useState(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const day = today.getDay(); 
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(today.getFullYear(), today.getMonth(), diff);
+  });
+
+
+  const [selectedMonth, setSelectedMonth] = useState(currentMonday.getMonth() + 1);
+  const [chartData, setChartData] = useState<ChartDay[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
-  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null); 
+  const [monthlyProfit, setMonthlyProfit] = useState(0);
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const [isAddCatModalVisible, setAddCatModalVisible] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [chartData, setChartData] = useState<ChartDay[]>([]);
-  const [monthlyProfit, setMonthlyProfit] = useState(0);
-  
-  const fetchData = async (month: number) => {
-  try {
-    console.log(`Загрузка данных за месяц: ${month}`);
 
-    const catsRes = await fetch(`http://127.0.0.1:8000/categories?month=${month}`);
-    const catsText = await catsRes.text();
-    console.log('Raw Categories Response:', catsText); 
-    const catsData = JSON.parse(catsText); 
+  const getWeekRangeLabel = (monday: Date) => {
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const formatDate = (d: Date) =>
+      `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+    return `${formatDate(monday)} – ${formatDate(sunday)}`;
+  };
 
-    const accsRes = await fetch('http://127.0.0.1:8000/accounts');
-    const accsText = await accsRes.text();
-    console.log('Raw Accounts Response:', accsText);
-    const accsData = JSON.parse(accsText);
+  const refreshAllData = async (monday: Date) => {
+    const dateStr = formatDateForBack(monday);
+    const month = monday.getMonth() + 1;
+    const year = monday.getFullYear();
 
-    const statsRes = await fetch(`http://127.0.0.1:8000/stats/summary?month=${month}`);
-    const statsData = await statsRes.json();
-    setMonthlyProfit(statsData.profit); 
+    if (month !== selectedMonth) {
+      setSelectedMonth(month);
+    }
 
-    setCategories(catsData.map((c: any) => ({ ...c, icon: c.emoji })));
-    setAccounts(accsData);
-    
-    if (accsData.length > 0 && selectedAccountId === null) {
+    try {
+      const [catsRes, accsRes, summaryRes, statsRes] = await Promise.all([
+        fetch(`http://127.0.0.1:8000/categories?month=${month}&year=${year}`),
+        fetch('http://127.0.0.1:8000/accounts'),
+        fetch(`http://127.0.0.1:8000/stats/summary?month=${month}&year=${year}`),
+        fetch(`http://127.0.0.1:8000/stats/weekly?start_date=${dateStr}`)
+      ]);
+
+      const catsData = await catsRes.json();
+      const accsData = await accsRes.json();
+      const summaryData = await summaryRes.json();
+      const statsData = await statsRes.json();
+
+      setCategories(catsData.map((c: any) => ({ ...c, icon: c.emoji })));
+      setAccounts(accsData);
+      setMonthlyProfit(summaryData.profit);
+      setChartData(statsData);
+
+      if (accsData.length > 0 && selectedAccountId === null) {
         setSelectedAccountId(accsData[0].id);
       }
     } catch (e) {
-      console.error("Ошибка при загрузке данных:", e);
+      console.error("Ошибка при обновлении данных:", e);
     }
-};
-
-  useEffect(() => {
-  fetchData(selectedMonth);
-  fetchWeeklyData(currentMonday);
-}, []);
-
-  const handleMonthChange = (index: number) => {
-    const monthNumber = index + 1;
-    setSelectedMonth(monthNumber);
-    fetchData(monthNumber); 
   };
 
-const handleSaveExpense = async (amount: number) => {
+  useEffect(() => {
+    refreshAllData(currentMonday);
+  }, []);
+
+  const handleMonthChange = (index: number) => {
+    const newMonth = index + 1;
+    if (newMonth === selectedMonth) return;
+
+    const firstDayOfMonth = new Date(new Date().getFullYear(), index, 1);
+    const day = firstDayOfMonth.getDay();
+    const diff = firstDayOfMonth.getDate() - day + (day === 0 ? -6 : 1);
+    const firstMonday = new Date(firstDayOfMonth.setDate(diff));
+
+    setCurrentMonday(firstMonday);
+    refreshAllData(firstMonday);
+  };
+
+  const handlePrevWeek = () => {
+    const next = new Date(currentMonday);
+    next.setDate(currentMonday.getDate() - 7);
+    setCurrentMonday(next);
+    refreshAllData(next);
+  };
+
+  const handleNextWeek = () => {
+    const next = new Date(currentMonday);
+    next.setDate(currentMonday.getDate() + 7);
+    setCurrentMonday(next);
+    refreshAllData(next);
+  };
+
+  const handleSaveExpense = async (amount: number) => {
     if (!selectedAccountId || !selectedCategory) return;
+
     try {
       const response = await fetch('http://127.0.0.1:8000/transactions', {
         method: 'POST',
@@ -75,8 +127,7 @@ const handleSaveExpense = async (amount: number) => {
       });
 
       if (response.ok) {
-        fetchData(selectedMonth); 
-        fetchWeeklyData(currentMonday); 
+        await refreshAllData(currentMonday); 
         setSelectedCategory(null);
       }
     } catch (e) {
@@ -84,50 +135,14 @@ const handleSaveExpense = async (amount: number) => {
     }
   };
 
-  const [currentMonday, setCurrentMonday] = useState(() => {
-  const d = new Date();
-  const day = d.getDay(), diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  return new Date(d.setDate(diff));
-  });
-
-  const getWeekRangeLabel = (monday: Date) => {
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  
-  const formatDate = (d: Date) => 
-    `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}`;
-    
-  return `${formatDate(monday)} – ${formatDate(sunday)}`;
-};
-
-const fetchWeeklyData = async (date: Date) => {
-  const dateStr = date.toISOString().split('T')[0]; 
-  try {
-    const res = await fetch(`http://127.0.0.1:8000/stats/weekly?start_date=${dateStr}`);
-    const data = await res.json();
-    setChartData(data);
-  } catch (e) { console.error(e); }
-};
-
-const handlePrevWeek = () => {
-  const next = new Date(currentMonday);
-  next.setDate(currentMonday.getDate() - 7);
-  setCurrentMonday(next);
-  fetchWeeklyData(next);
-};
-
-const handleNextWeek = () => {
-  const next = new Date(currentMonday);
-  next.setDate(currentMonday.getDate() + 7);
-  setCurrentMonday(next);
-  fetchWeeklyData(next);
-};
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.wrapper}>
         <View style={styles.header}>
-            <MonthPicker onMonthChange={handleMonthChange}/>
+          <MonthPicker 
+            onMonthChange={handleMonthChange} 
+            selectedMonth={selectedMonth} 
+          />
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false}>
@@ -179,7 +194,7 @@ const handleNextWeek = () => {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(newCat)
             });
-            fetchData(selectedMonth);
+            refreshAllData(currentMonday); 
             setAddCatModalVisible(false);
         }}
       />
@@ -190,6 +205,7 @@ const handleNextWeek = () => {
         onClose={() => setSelectedCategory(null)}
         onSave={handleSaveExpense}
       />
+      <AIAgentFab />
     </SafeAreaView>
   );
 }
