@@ -84,20 +84,24 @@ export function ProfitChart({
     }
   };
 
+  const isNegative = monthlyProfit < 0;
+
   return (
-    // ГЛАВНОЕ ИЗМЕНЕНИЕ: Теперь у контейнера всегда фиксированная высота 280
     <View style={styles.container}>
       {mode === 'chart' ? (
-        // РЕЖИМ ГРАФИКА
         <View style={styles.fullHeight}>
             <View style={styles.header}>
                 <Text style={styles.label}>Общая прибыль за месяц</Text>
-                <Text style={styles.profit}>+{formatNumber(monthlyProfit)} {currency}</Text>
+                <Text style={[
+                  styles.profit, 
+                  { color: isNegative ? '#FF3B30' : '#007AFF'}
+                ]}>
+                  {isNegative ? '' : '+'}{formatNumber(monthlyProfit)} {currency}
+                </Text>
             </View>
 
             <View style={styles.chartAreaWrapper}>
                 <View style={styles.chartContent}>
-                    {/* Y-axis просто отображается, жесты на нем не ловим */}
                     <View style={styles.yAxis}>
                         {Array.from({ length: ySteps + 1 }).map((_, i) => (
                             <Text key={i} style={styles.yLabel}>
