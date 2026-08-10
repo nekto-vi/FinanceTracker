@@ -50,8 +50,9 @@ export default function HomeScreen() {
 };
 
   useEffect(() => {
-      fetchData(selectedMonth);
-    }, []); 
+  fetchData(selectedMonth);
+  fetchWeeklyData(currentMonday);
+}, []);
 
   const handleMonthChange = (index: number) => {
     const monthNumber = index + 1;
@@ -75,12 +76,52 @@ const handleSaveExpense = async (amount: number) => {
 
       if (response.ok) {
         fetchData(selectedMonth); 
+        fetchWeeklyData(currentMonday); 
         setSelectedCategory(null);
       }
     } catch (e) {
       console.error(e);
     }
   };
+
+  const [currentMonday, setCurrentMonday] = useState(() => {
+  const d = new Date();
+  const day = d.getDay(), diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  return new Date(d.setDate(diff));
+  });
+
+  const getWeekRangeLabel = (monday: Date) => {
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  
+  const formatDate = (d: Date) => 
+    `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+    
+  return `${formatDate(monday)} – ${formatDate(sunday)}`;
+};
+
+const fetchWeeklyData = async (date: Date) => {
+  const dateStr = date.toISOString().split('T')[0]; 
+  try {
+    const res = await fetch(`http://127.0.0.1:8000/stats/weekly?start_date=${dateStr}`);
+    const data = await res.json();
+    setChartData(data);
+  } catch (e) { console.error(e); }
+};
+
+const handlePrevWeek = () => {
+  const next = new Date(currentMonday);
+  next.setDate(currentMonday.getDate() - 7);
+  setCurrentMonday(next);
+  fetchWeeklyData(next);
+};
+
+const handleNextWeek = () => {
+  const next = new Date(currentMonday);
+  next.setDate(currentMonday.getDate() + 7);
+  setCurrentMonday(next);
+  fetchWeeklyData(next);
+};
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -94,8 +135,10 @@ const handleSaveExpense = async (amount: number) => {
             <ProfitChart
               currentBalance={accounts.reduce((sum, a) => sum + a.balance, 0)}
               monthlyProfit={monthlyProfit}
-              weekRange="Текущая неделя"
+              weekRange={getWeekRangeLabel(currentMonday)} 
               data={chartData}
+              onPrevWeek={handlePrevWeek} 
+              onNextWeek={handleNextWeek} 
               currency="BYN"
             />
           </View>

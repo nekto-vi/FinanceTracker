@@ -10,8 +10,8 @@ import {
 } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-// Ширина элемента месяца (весь экран минус отступы обертки в HomeScreen)
 const ITEM_WIDTH = SCREEN_WIDTH - 40; 
+const currentYear = new Date().getFullYear();
 
 const MONTHS = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
@@ -61,7 +61,7 @@ export function MonthPicker({ onMonthChange }: Props) {
         scrollEventThrottle={16}
         renderItem={({ item }) => (
           <View style={styles.monthWrapper}>
-            <Text style={styles.monthText}>{item}</Text>
+            <Text style={styles.monthText}>{item} {currentYear}</Text>
           </View>
         )}
         getItemLayout={(_, index) => ({
