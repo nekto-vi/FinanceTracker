@@ -6,8 +6,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AIAgentFab } from '../components/AIAgentFab';
 import { AddCategoryModal } from './components/AddCategoryModal';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MonthPicker } from './components/MonthPicker';
+import { AddExpenseModal } from '@/features/home/AddExpenseModal';
 
 const CHART_DATA = [
   {
@@ -97,80 +98,128 @@ const CHART_DATA = [
   },
 ];
 
-const EXPENSE_CATEGORIES = [
-  { id: 'food', name: 'Еда', icon: '🍔', color: '#FF9500', amount: 120 },
-  { id: 'transport', name: 'Транспорт', icon: '🚗', color: '#FF3B30', amount: 45 },
-  { id: 'shopping', name: 'Шоппинг', icon: '🛍️', color: '#FF2D92', amount: 210 },
-  { id: 'health', name: 'Здоровье', icon: '💊', color: '#FF6B35', amount: 15 },
-  { id: 'home', name: 'Дом', icon: '🏠', color: '#C75B39', amount: 80 },
-  { id: 'sport', name: 'Спорт', icon: '🏀', color: '#F5A623', amount: 60 },
-  { id: 'mobile', name: 'Связь', icon: '📱', color: '#5856D6', amount: 25 },
-  { id: 'entertainment', name: 'Отдых', icon: '🍿', color: '#FF6482', amount: 110 },
-  { id: 'gifts', name: 'Подарки', icon: '🎁', color: '#E83F3F', amount: 50 },
-];
-
 export default function HomeScreen() {
-    const handleMonthChange = (index: number) => {
-    console.log('Выбран месяц с индексом:', index);
-    // Здесь позже будем фильтровать данные
-  };
-  const [isAddModalVisible, setAddModalVisible] = useState(false);
+  // 1. Стейты
+ const [categories, setCategories] = useState<any[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null); 
+  const [selectedCategory, setSelectedCategory] = useState<any>(null);
+  const [isAddCatModalVisible, setAddCatModalVisible] = useState(false);
+  
+  const fetchData = async () => {
+  try {
+    const catsRes = await fetch('http://127.0.0.1:8000/categories');
+    const catsText = await catsRes.text();
+    console.log('Raw Categories Response:', catsText); 
+    const catsData = JSON.parse(catsText); 
 
-  const handleAddCategory = (newCat: any) => {
-    console.log('Создаем категорию:', newCat);
-    // Здесь будет логика сохранения в твой стейт или БД
-    setAddModalVisible(false);
+    const accsRes = await fetch('http://127.0.0.1:8000/accounts');
+    const accsText = await accsRes.text();
+    console.log('Raw Accounts Response:', accsText);
+    const accsData = JSON.parse(accsText);
+
+    setCategories(catsData.map((c: any) => ({ ...c, icon: c.emoji })));
+    setAccounts(accsData);
+    
+    if (accsData.length > 0 && !selectedAccountId) {
+      setSelectedAccountId(accsData[0].id);
+    }
+  } catch (e) {
+    console.error("Ошибка при загрузке данных:", e);
+  }
+};
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+const handleSaveExpense = async (amount: number) => {
+    if (!selectedAccountId || !selectedCategory) {
+      alert("Сначала выберите счет и категорию!");
+      return;
+    }
+
+    try {
+      const response = await fetch('http://127.0.0.1:8000/transactions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: amount,
+          account_id: selectedAccountId,
+          category_id: selectedCategory.id,
+          type: "expense"
+        }),
+      });
+
+      if (response.ok) {
+        fetchData(); 
+        setSelectedCategory(null);
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.wrapper}>
-        <View>
-          <View style={styles.header}>
-            <MonthPicker onMonthChange={handleMonthChange} />
-          </View>
+        <View style={styles.header}>
+            <MonthPicker onMonthChange={(i) => console.log(i)} />
+        </View>
 
-          <View style={styles.card}>
-            <ProfitChart
-              currentBalance={500}
-              monthlyProfit={3400}
-              weekRange="1 – 7 июля"
-              data={CHART_DATA}
-              currency="BYN"
-            />
-          </View>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {}
 
           <Text style={styles.sectionTitle}>Счета</Text>
           <View style={styles.accountsRow}>
-            <AccountCard title="Карта" amount="$4,280" icon="creditcard.fill" color="#007AFF" />
-            <AccountCard title="Наличные" amount="320 BYN" icon="dollarsign.circle.fill" color="#34C759" />
+            {accounts.map((acc) => (
+              <AccountCard 
+                key={acc.id}
+                title={acc.name}
+                amount={`${acc.balance.toLocaleString()} BYN`}
+                icon={acc.name === "Карта" ? "creditcard.fill" : "dollarsign.circle.fill"}
+                color={acc.name === "Карта" ? "#007AFF" : "#34C759"}
+                isSelected={selectedAccountId === acc.id}
+                onPress={() => setSelectedAccountId(acc.id)} 
+              />
+            ))}
           </View>
 
           <Text style={styles.sectionTitle}>Расходы</Text>
-        </View>
-
-        <ScrollView
-          style={styles.gridScroll}
-          contentContainerStyle={styles.gridContent}
-          showsVerticalScrollIndicator={false}
-        >
           <ExpenseGrid
-            categories={EXPENSE_CATEGORIES}
-            onCategoryPress={(id) => console.log('Категория:', id)}
-            onAddPress={() => setAddModalVisible(true)}
+            categories={categories}
+            onCategoryPress={(id) => {
+              const cat = categories.find((c) => String(c.id) === String(id));
+              setSelectedCategory(cat);
+            }}
+            onAddPress={() => setAddCatModalVisible(true)}
           />
         </ScrollView>
       </View>
+
       <AddCategoryModal 
-        isVisible={isAddModalVisible}
-        onClose={() => setAddModalVisible(false)}
-        onConfirm={handleAddCategory}
+        isVisible={isAddCatModalVisible}
+        onClose={() => setAddCatModalVisible(false)}
+        onConfirm={async (newCat) => {
+            await fetch('http://127.0.0.1:8000/categories', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(newCat)
+            });
+            fetchData();
+            setAddCatModalVisible(false);
+        }}
       />
-      <AIAgentFab /> 
+
+      <AddExpenseModal 
+        isVisible={!!selectedCategory}
+        category={selectedCategory}
+        onClose={() => setSelectedCategory(null)}
+        onSave={handleSaveExpense}
+      />
     </SafeAreaView>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {
@@ -184,10 +233,6 @@ const styles = StyleSheet.create({
   header: {
     paddingVertical: 10,
     alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '600',
   },
   card: {
     backgroundColor: FinanceColors.card,
@@ -204,11 +249,6 @@ const styles = StyleSheet.create({
   accountsRow: {
     flexDirection: 'row',
     gap: 12,
-  },
-  gridScroll: {
-    flex: 1,
-  },
-  gridContent: {
-    paddingBottom: 20,
+    marginBottom: 5,
   },
 });
