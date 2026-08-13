@@ -111,7 +111,7 @@ export default function HomeScreen() {
     refreshAllData(next);
   };
 
-  const handleSaveExpense = async (amount: number) => {
+  const handleSaveExpense = async (data: any) => {
     if (!selectedAccountId || !selectedCategory) return;
 
     try {
@@ -119,9 +119,11 @@ export default function HomeScreen() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: amount,
+          amount: data.amount,
           account_id: selectedAccountId,
           category_id: selectedCategory.id,
+          note: data.note,   
+          date: data.date,
           type: "expense"
         }),
       });
@@ -200,8 +202,11 @@ export default function HomeScreen() {
       />
 
       <AddExpenseModal 
+        allCategories={categories}
+        allAccounts={accounts}
         isVisible={!!selectedCategory}
         category={selectedCategory}
+        account={accounts.find(a => a.id === selectedAccountId)} 
         onClose={() => setSelectedCategory(null)}
         onSave={handleSaveExpense}
       />

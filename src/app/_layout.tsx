@@ -3,12 +3,18 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StyleSheet, useColorScheme } from 'react-native';
+import { initLocalDb } from '@/services/localDb';
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { useEffect } from 'react';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  useEffect(() => {
+    initLocalDb(); 
+  }, []);
+  
   const colorScheme = useColorScheme();
 
   return (
