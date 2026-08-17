@@ -47,7 +47,7 @@ export function ExpenseGrid({
                   <View
                     style={[
                       styles.iconCircle,
-                      { backgroundColor: cat.color + '20' }, // 20 = 12% opacity hex
+                      { backgroundColor: cat.color + '20' }, 
                     ]}
                   >
                     <Text style={styles.icon}>{cat.icon}</Text>

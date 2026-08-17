@@ -41,7 +41,6 @@ export function AIAgentFab() {
   
   const inputRef = useRef<TextInput>(null);
 
-  // Анимации
   const posX = useSharedValue(RIGHT_EDGE);
   const expandProgress = useSharedValue(0);
   const recordingProgress = useSharedValue(0);
@@ -68,17 +67,14 @@ export function AIAgentFab() {
     } else if (text.length === 0) {
       toggleExpand(false);
     } else {
-      // Эффект вспышки при отправке
       flashAnim.value = withSequence(
         withTiming(1, { duration: 100 }),
         withTiming(0, { duration: 100 })
       );
       console.log('ИИ обрабатывает запрос:', text);
-      // Здесь потом добавим fetch к бэкенду для ИИ
     }
   };
 
-  // ЖЕСТЫ
   const tapGesture = Gesture.Tap()
     .enabled(!isExpanded)
     .onEnd(() => {

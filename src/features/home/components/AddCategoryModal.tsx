@@ -58,7 +58,6 @@ export function AddCategoryModal({ isVisible, onClose, onConfirm }: Props) {
     }
   }, [isVisible, showModal]);
 
-  // ЖЕСТ: Закрытие притягиванием вниз
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
       if (e.translationY > 0) {
@@ -217,7 +216,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     gap: 12,
-    paddingLeft: 2, // ТОТ САМЫЙ ОТСТУП СЛЕВА
+    paddingLeft: 2, 
   },
   colorCircle: {
     width: 38,

@@ -4,7 +4,6 @@ import { FinanceColors } from '@/constants/theme';
 import { SymbolView } from 'expo-symbols';
 import * as SecureStore from 'expo-secure-store';
 import { AuthModal } from './AuthModal';
-import { router } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 
 export default function SettingsScreen() {
@@ -17,11 +16,16 @@ export default function SettingsScreen() {
   }, []);
 
   const handleLogout = async () => {
-      await signOut(); // Это само выкинет тебя на экран логина
-    };
+    await signOut(); 
+    setUsername(null); 
+  };
 
   const SettingItem = ({ icon, title, value, onPress, color = "#8E8E93", isLast = false }: any) => (
-    <TouchableOpacity style={[styles.item, isLast && { borderBottomWidth: 0 }]} onPress={onPress}>
+    <TouchableOpacity 
+      style={[styles.item, isLast && { borderBottomWidth: 0 }]} 
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
       <View style={[styles.iconBox, { backgroundColor: color + '15' }]}>
         <SymbolView name={icon} size={20} tintColor={color} />
       </View>
@@ -38,22 +42,32 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.header}>Настройки</Text>
         
-        {/* Блок Профиля */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>АККАУНТ</Text>
           <View style={styles.card}>
             {username ? (
               <>
                 <SettingItem icon="person.fill" title="Профиль" value={username} color="#007AFF" />
-                <SettingItem icon="rectangle.portrait.and.arrow.right" title="Выйти" onPress={handleLogout} color="#FF3B30" isLast />
+                <SettingItem 
+                  icon="rectangle.portrait.and.arrow.right" 
+                  title="Выйти" 
+                  onPress={handleLogout} 
+                  color="#FF3B30" 
+                  isLast 
+                />
               </>
             ) : (
-              <SettingItem icon="person.crop.circle.badge.plus" title="Войти в профиль" onPress={() => setIsAuthVisible(true)} color="#007AFF" isLast />
+              <SettingItem 
+                icon="person.crop.circle.badge.plus" 
+                title="Войти в профиль" 
+                onPress={() => setIsAuthVisible(true)} 
+                color="#007AFF" 
+                isLast 
+              />
             )}
           </View>
         </View>
 
-        {/* Блок Общее */}
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>ОБЩЕЕ</Text>
           <View style={styles.card}>
@@ -67,19 +81,42 @@ export default function SettingsScreen() {
       <AuthModal 
         isVisible={isAuthVisible} 
         onClose={() => setIsAuthVisible(false)} 
-        onLoginSuccess={(name) => setUsername(name)} 
+        onLoginSuccess={(name: string) => setUsername(name)} 
       />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
-  scroll: { padding: 20 },
-  header: { fontSize: 34, fontWeight: '800', marginBottom: 20, letterSpacing: 0.5 },
-  section: { marginBottom: 25 },
-  sectionLabel: { fontSize: 13, color: '#8E8E93', marginBottom: 8, marginLeft: 10, fontWeight: '500' },
-  card: { backgroundColor: 'white', borderRadius: 12, overflow: 'hidden' },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#F2F2F7' 
+  },
+  scroll: { 
+    padding: 20 
+  },
+  header: { 
+    fontSize: 34, 
+    fontWeight: '800', 
+    marginBottom: 20, 
+    letterSpacing: 0.5 
+  },
+  section: { 
+    marginBottom: 25 
+  },
+  sectionLabel: { 
+    fontSize: 13, 
+    color: '#8E8E93', 
+    marginBottom: 8, 
+    marginLeft: 10, 
+    fontWeight: '500',
+    textTransform: 'uppercase'
+  },
+  card: { 
+    backgroundColor: 'white', 
+    borderRadius: 12, 
+    overflow: 'hidden' 
+  },
   item: { 
     flexDirection: 'row', 
     alignItems: 'center', 
@@ -88,8 +125,26 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth, 
     borderBottomColor: '#C7C7CC' 
   },
-  iconBox: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  itemTitle: { flex: 1, fontSize: 17, color: '#000' },
-  rightContent: { flexDirection: 'row', alignItems: 'center' },
-  itemValue: { fontSize: 17, color: '#8E8E93', marginRight: 8 }
+  iconBox: { 
+    width: 32, 
+    height: 32, 
+    borderRadius: 8, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginRight: 12 
+  },
+  itemTitle: { 
+    flex: 1, 
+    fontSize: 17, 
+    color: '#000' 
+  },
+  rightContent: { 
+    flexDirection: 'row', 
+    alignItems: 'center' 
+  },
+  itemValue: { 
+    fontSize: 17, 
+    color: '#8E8E93', 
+    marginRight: 8 
+  }
 });

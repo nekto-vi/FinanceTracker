@@ -1,116 +1,224 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, SafeAreaView, ActivityIndicator } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, SafeAreaView, ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/context/AuthContext';
+import { API_CONFIG } from '@/constants/Config';
+
+interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  username: string;
+  detail?: string;
+}
 
 export default function LoginScreen() {
-  // Используем функцию signIn из нашего контекста
   const { signIn } = useAuth();
   
-  const [isLogin, setIsLogin] = useState(true);
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [isLogin, setIsLogin] = useState<boolean>(true);
+  const [username, setUsername] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  const handleAuth = async () => {
-    if (!username || !password) {
-      Alert.alert('Ошибка', 'Введите логин и пароль');
+  const toggleAuthMode = useCallback(() => {
+    setIsLogin((prev) => !prev);
+  }, []);
+
+  const handleAuthentication = async (): Promise<void> => {
+    const trimmedUsername = username.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedUsername || !trimmedPassword) {
+      Alert.alert('Внимание', 'Пожалуйста, заполните все поля');
       return;
     }
 
-    setLoading(true);
-    const endpoint = isLogin ? 'login' : 'register';
+    setIsLoading(true);
+    
+    const endpoint = isLogin 
+      ? API_CONFIG.ENDPOINTS.LOGIN 
+      : API_CONFIG.ENDPOINTS.REGISTER;
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/auth/${endpoint}`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${endpoint}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ 
+          username: trimmedUsername, 
+          password: trimmedPassword 
+        }),
       });
 
-      const data = await response.json();
+      const data: AuthResponse = await response.json();
 
       if (response.ok) {
-        // Вызываем signIn из контекста. 
-        // Эта функция сама сохранит токен и МГНОВЕННО обновит всё приложение.
-        // Переход в (tabs) произойдет автоматически благодаря NavigationGuard в _layout.tsx
         await signIn(data.access_token, data.username);
       } else {
-        Alert.alert('Ошибка', data.detail || 'Неверные данные');
+        Alert.alert('Ошибка авторизации', data.detail || 'Проверьте введенные данные');
       }
-    } catch (e) {
-      Alert.alert('Ошибка', 'Сервер не отвечает. Проверьте соединение.');
+    } catch (error) {
+      Alert.alert('Ошибка сети', 'Не удалось связаться с сервером. Попробуйте позже.');
+      console.error('[Auth Error]:', error);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.logo}>Finance AI</Text>
-        <Text style={styles.title}>{isLogin ? 'С возвращением' : 'Создать аккаунт'}</Text>
-        
-        <TextInput 
-          style={styles.input} 
-          placeholder="Логин" 
-          value={username} 
-          onChangeText={setUsername} 
-          autoCapitalize="none"
-          placeholderTextColor="#C7C7CC"
-        />
-        <TextInput 
-          style={styles.input} 
-          placeholder="Пароль" 
-          value={password} 
-          onChangeText={setPassword} 
-          secureTextEntry
-          placeholderTextColor="#C7C7CC"
-        />
-
-        <TouchableOpacity 
-          style={styles.btnWrapper} 
-          onPress={handleAuth}
-          disabled={loading}
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.flex}
+      >
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
         >
-          <LinearGradient colors={['#7C7BAD', '#6D6BA1']} style={styles.liquidBtn}>
-            {loading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text style={styles.btnText}>{isLogin ? 'Войти' : 'Зарегистрироваться'}</Text>
-            )}
-          </LinearGradient>
-        </TouchableOpacity>
+          <View style={styles.header}>
+            <Text style={styles.logo}>Finance AI</Text>
+            <Text style={styles.subtitle}>
+              {isLogin ? 'С возвращением!' : 'Добро пожаловать'}
+            </Text>
+          </View>
 
-        <TouchableOpacity onPress={() => setIsLogin(!isLogin)} style={{marginTop: 25}}>
-          <Text style={styles.switchText}>
-            {isLogin ? 'Нет аккаунта? Создать' : 'Уже есть профиль? Войти'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <View style={styles.form}>
+            <TextInput 
+              style={styles.input} 
+              placeholder="Логин" 
+              value={username} 
+              onChangeText={setUsername} 
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholderTextColor="#A9A9AC"
+            />
+            <TextInput 
+              style={styles.input} 
+              placeholder="Пароль" 
+              value={password} 
+              onChangeText={setPassword} 
+              secureTextEntry
+              placeholderTextColor="#A9A9AC"
+            />
+
+            <TouchableOpacity 
+              style={styles.buttonContainer} 
+              onPress={handleAuthentication}
+              disabled={isLoading}
+              activeOpacity={0.8}
+            >
+              <LinearGradient 
+                colors={['#7C7BAD', '#6D6BA1']} 
+                style={styles.gradientButton}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.buttonText}>
+                    {isLogin ? 'Войти' : 'Создать аккаунт'}
+                  </Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              onPress={toggleAuthMode} 
+              style={styles.switchButton}
+            >
+              <Text style={styles.switchText}>
+                {isLogin 
+                  ? 'Нет аккаунта? Зарегистрироваться' 
+                  : 'Уже есть профиль? Войти'
+                }
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
-  content: { flex: 1, padding: 30, justifyContent: 'center', alignItems: 'center' },
-  logo: { fontSize: 40, fontWeight: '900', color: '#6D6BA1', marginBottom: 10 },
-  title: { fontSize: 22, fontWeight: '700', marginBottom: 40, color: '#1C1C1E' },
+  container: {
+    flex: 1,
+    backgroundColor: '#F2F2F7',
+  },
+  flex: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 30,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  logo: {
+    fontSize: 42,
+    fontWeight: '900',
+    color: '#6D6BA1',
+    letterSpacing: -1,
+  },
+  subtitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#3A3A3C',
+    marginTop: 8,
+  },
+  form: {
+    width: '100%',
+  },
   input: { 
     width: '100%', 
-    backgroundColor: 'white', 
-    padding: 18, 
-    borderRadius: 16, 
-    marginBottom: 15, 
+    backgroundColor: '#FFFFFF', 
+    paddingVertical: 16,
+    paddingHorizontal: 20, 
+    borderRadius: 14, 
+    marginBottom: 16, 
     fontSize: 16, 
-    color: '#000',
-    shadowColor: '#000', 
-    shadowOpacity: 0.05, 
-    shadowRadius: 10 
+    color: '#1C1C1E',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
-  btnWrapper: { width: '100%', borderRadius: 16, overflow: 'hidden', marginTop: 10 },
-  liquidBtn: { padding: 18, alignItems: 'center' },
-  btnText: { color: 'white', fontWeight: '700', fontSize: 17 },
-  switchText: { color: '#007AFF', fontWeight: '600' }
+  buttonContainer: {
+    marginTop: 10,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  gradientButton: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 17,
+  },
+  switchButton: {
+    marginTop: 24,
+    alignItems: 'center',
+  },
+  switchText: {
+    color: '#007AFF',
+    fontWeight: '600',
+    fontSize: 15,
+  }
 });

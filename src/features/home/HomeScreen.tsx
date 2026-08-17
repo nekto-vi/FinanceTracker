@@ -12,6 +12,7 @@ import { AIAgentFab } from '../components/AIAgentFab';
 import { AddCategoryModal } from './components/AddCategoryModal';
 import { MonthPicker } from './components/MonthPicker';
 import { AddExpenseModal } from '@/features/home/AddExpenseModal';
+import { useAuth } from '@/context/AuthContext';
 
 const formatDateForBack = (date: Date) => {
   const year = date.getFullYear();
@@ -22,6 +23,7 @@ const formatDateForBack = (date: Date) => {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { signOut } = useAuth();
 
   const [currentMonday, setCurrentMonday] = useState(() => {
     const today = new Date();
@@ -40,12 +42,8 @@ export default function HomeScreen() {
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const [isAddCatModalVisible, setAddCatModalVisible] = useState(false);
 
-  // --- 2. ЛОГИКА ---
-
   const handleLogout = async () => {
-    await SecureStore.deleteItemAsync('userToken');
-    await SecureStore.deleteItemAsync('username');
-    router.replace('/login' as any);
+    await signOut();
   };
 
   const refreshAllData = async (monday: Date) => {
@@ -94,8 +92,6 @@ export default function HomeScreen() {
   useEffect(() => {
     refreshAllData(currentMonday);
   }, [currentMonday]);
-
-  // --- 3. ОБРАБОТЧИКИ ---
 
   const handleMonthChange = (index: number) => {
     const newMonth = index + 1;
