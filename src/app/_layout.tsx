@@ -1,36 +1,47 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { StyleSheet, useColorScheme } from 'react-native';
-import { initLocalDb } from '@/services/localDb';
-
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
+import { View, ActivityIndicator } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { AuthProvider, useAuth } from '@/context/AuthContext'; // Импорт
 
-SplashScreen.preventAutoHideAsync();
+function NavigationGuard() {
+  const { userToken, isLoading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
 
-export default function RootLayout() {
   useEffect(() => {
-    initLocalDb(); 
-  }, []);
-  
-  const colorScheme = useColorScheme();
+    if (isLoading) return;
+
+    const inAuthGroup = (segments[0] as string) === '(auth)';
+
+    if (!userToken && !inAuthGroup) {
+      router.replace('/login' as any);
+    } else if (userToken && inAuthGroup) {
+      router.replace('/(tabs)' as any);
+    }
+  }, [userToken, segments, isLoading]);
+
+  if (isLoading) {
+    return <View style={{flex: 1, justifyContent: 'center'}}><ActivityIndicator size="large" /></View>;
+  }
 
   return (
-    <GestureHandlerRootView style={styles.root}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <AnimatedSplashOverlay />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-        </Stack>
-      </ThemeProvider>
-    </GestureHandlerRootView>
+    <Stack screenOptions={{ headerShown: false }}>
+      {!userToken ? (
+        <Stack.Screen name="(auth)/login" options={{ animation: 'fade' }} />
+      ) : (
+        <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+      )}
+    </Stack>
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-  },
-});
+export default function RootLayout() {
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <NavigationGuard />
+      </AuthProvider>
+    </GestureHandlerRootView>
+  );
+}

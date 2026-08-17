@@ -1,24 +1,26 @@
-import { SymbolView } from 'expo-symbols';
-import { useCallback, useRef, useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
-    Dimensions,
-    Keyboard,
-    Pressable,
-    StyleSheet,
-    TextInput,
-    View,
+  StyleSheet,
+  TextInput,
+  Dimensions,
+  Keyboard,
+  Pressable,
+  View,
 } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+
 import Animated, {
-    Easing,
-    interpolate,
-    interpolateColor,
-    runOnJS,
-    useAnimatedStyle,
-    useSharedValue,
-    withTiming,
-    withSequence, // Добавили для эффекта вспышки
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  runOnJS,
+  interpolate,
+  Easing,
+  interpolateColor,
+  withSequence,
 } from 'react-native-reanimated';
+
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { SymbolView } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -39,10 +41,11 @@ export function AIAgentFab() {
   
   const inputRef = useRef<TextInput>(null);
 
+  // Анимации
   const posX = useSharedValue(RIGHT_EDGE);
   const expandProgress = useSharedValue(0);
   const recordingProgress = useSharedValue(0);
-  const flashAnim = useSharedValue(0); // Анимация вспышки при отправке
+  const flashAnim = useSharedValue(0);
 
   const toggleExpand = useCallback((expand: boolean) => {
     setIsExpanded(expand);
@@ -59,6 +62,23 @@ export function AIAgentFab() {
     }
   }, []);
 
+  const handleIconPress = () => {
+    if (!isExpanded) {
+      toggleExpand(true);
+    } else if (text.length === 0) {
+      toggleExpand(false);
+    } else {
+      // Эффект вспышки при отправке
+      flashAnim.value = withSequence(
+        withTiming(1, { duration: 100 }),
+        withTiming(0, { duration: 100 })
+      );
+      console.log('ИИ обрабатывает запрос:', text);
+      // Здесь потом добавим fetch к бэкенду для ИИ
+    }
+  };
+
+  // ЖЕСТЫ
   const tapGesture = Gesture.Tap()
     .enabled(!isExpanded)
     .onEnd(() => {
@@ -67,7 +87,7 @@ export function AIAgentFab() {
 
   const longPressGesture = Gesture.LongPress()
     .enabled(!isExpanded)
-    .minDuration(200)
+    .minDuration(250)
     .onStart(() => {
       runOnJS(setIsRecording)(true);
       recordingProgress.value = withTiming(1, { duration: 200 });
@@ -79,23 +99,22 @@ export function AIAgentFab() {
 
   const panGesture = Gesture.Pan()
     .enabled(!isExpanded)
-    .minDistance(10)
     .onUpdate((e) => {
       posX.value = e.absoluteX - FAB_SIZE / 2;
     })
     .onEnd((e) => {
       const velocity = e.velocityX;
       const currentX = e.absoluteX;
-      
       let targetSide: 'left' | 'right' = currentX < SCREEN_W / 2 ? 'left' : 'right';
+      
       if (velocity < -500) targetSide = 'left';
       if (velocity > 500) targetSide = 'right';
 
       runOnJS(setSide)(targetSide);
-      posX.value = withTiming(
-        targetSide === 'left' ? LEFT_EDGE : RIGHT_EDGE,
-        { duration: 200, easing: Easing.out(Easing.quad) }
-      );
+      posX.value = withTiming(targetSide === 'left' ? LEFT_EDGE : RIGHT_EDGE, { 
+        duration: 200, 
+        easing: Easing.out(Easing.quad) 
+      });
     });
 
   const composedGesture = Gesture.Exclusive(tapGesture, longPressGesture, panGesture);
@@ -111,57 +130,29 @@ export function AIAgentFab() {
       left = posX.value;
     }
 
-    // Логика цвета: Белый -> Красный (запись) -> Серый (вспышка при клике)
-    const baseColor = interpolateColor(
-      recordingProgress.value,
-      [0, 1],
-      ['#FFFFFF', '#FF3B30']
-    );
-
-    const finalColor = interpolateColor(
-      flashAnim.value,
-      [0, 1],
-      [baseColor, '#E5E5EA'] // Цвет вспышки
-    );
+    const baseColor = interpolateColor(recordingProgress.value, [0, 1], ['#FFFFFF', '#FF3B30']);
+    const finalColor = interpolateColor(flashAnim.value, [0, 1], [baseColor, '#E5E5EA']);
 
     return {
       width,
       left,
       backgroundColor: finalColor,
-      borderRadius: 28,
       transform: [
-          { scale: interpolate(recordingProgress.value, [0, 1], [1, 1.1]) },
-          { scale: interpolate(flashAnim.value, [0, 1], [1, 0.98]) } // Легкое сжатие при клике
+        { scale: interpolate(recordingProgress.value, [0, 1], [1, 1.1]) },
+        { scale: interpolate(flashAnim.value, [0, 1], [1, 0.98]) }
       ]
     };
   });
 
   const inputOpacityStyle = useAnimatedStyle(() => ({
-    opacity: expandProgress.value,
+    opacity: interpolate(expandProgress.value, [0.6, 1], [0, 1]),
   }));
-
-  // Функция для обработки клика по иконке в развернутом виде
-  const handleIconPress = () => {
-    if (!isExpanded) {
-        toggleExpand(true);
-    } else if (text.length === 0) {
-        toggleExpand(false);
-    } else {
-        // Тот самый эффект "вспышки"
-        flashAnim.value = withSequence(
-            withTiming(1, { duration: 100 }),
-            withTiming(0, { duration: 100 })
-        );
-        console.log('Кнопка нажата, текст сохранен:', text);
-        // Текст НЕ стираем, окно НЕ закрываем
-    }
-  };
 
   return (
     <>
       {isExpanded && (
         <Pressable style={StyleSheet.absoluteFill} onPress={() => toggleExpand(false)}>
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.03)' }]} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.02)' }]} />
         </Pressable>
       )}
 
@@ -205,11 +196,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     height: FAB_SIZE,
     zIndex: 1000,
+    borderRadius: 28,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 5,
+    overflow: 'hidden',
   },
   inner: {
     flex: 1,

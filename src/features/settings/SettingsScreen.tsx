@@ -1,23 +1,95 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
 import { FinanceColors } from '@/constants/theme';
-import { SafeAreaView, StyleSheet, Text } from 'react-native';
+import { SymbolView } from 'expo-symbols';
+import * as SecureStore from 'expo-secure-store';
+import { AuthModal } from './AuthModal';
+import { router } from 'expo-router';
+import { useAuth } from '@/context/AuthContext';
 
 export default function SettingsScreen() {
+  const [isAuthVisible, setIsAuthVisible] = useState(false);
+  const [username, setUsername] = useState<string | null>(null);
+  const { signOut } = useAuth();
+
+  useEffect(() => {
+    SecureStore.getItemAsync('username').then(val => setUsername(val));
+  }, []);
+
+  const handleLogout = async () => {
+      await signOut(); // Это само выкинет тебя на экран логина
+    };
+
+  const SettingItem = ({ icon, title, value, onPress, color = "#8E8E93", isLast = false }: any) => (
+    <TouchableOpacity style={[styles.item, isLast && { borderBottomWidth: 0 }]} onPress={onPress}>
+      <View style={[styles.iconBox, { backgroundColor: color + '15' }]}>
+        <SymbolView name={icon} size={20} tintColor={color} />
+      </View>
+      <Text style={styles.itemTitle}>{title}</Text>
+      <View style={styles.rightContent}>
+        {value && <Text style={styles.itemValue}>{value}</Text>}
+        <SymbolView name="chevron.right" size={14} tintColor="#C7C7CC" />
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.text}>Настройки</Text>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <Text style={styles.header}>Настройки</Text>
+        
+        {/* Блок Профиля */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>АККАУНТ</Text>
+          <View style={styles.card}>
+            {username ? (
+              <>
+                <SettingItem icon="person.fill" title="Профиль" value={username} color="#007AFF" />
+                <SettingItem icon="rectangle.portrait.and.arrow.right" title="Выйти" onPress={handleLogout} color="#FF3B30" isLast />
+              </>
+            ) : (
+              <SettingItem icon="person.crop.circle.badge.plus" title="Войти в профиль" onPress={() => setIsAuthVisible(true)} color="#007AFF" isLast />
+            )}
+          </View>
+        </View>
+
+        {/* Блок Общее */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>ОБЩЕЕ</Text>
+          <View style={styles.card}>
+            <SettingItem icon="dollarsign.circle.fill" title="Валюта" value="BYN" color="#34C759" />
+            <SettingItem icon="paintbrush.fill" title="Тема" value="Светлая" color="#AF52DE" />
+            <SettingItem icon="bell.fill" title="Уведомления" color="#FF9500" isLast />
+          </View>
+        </View>
+      </ScrollView>
+
+      <AuthModal 
+        isVisible={isAuthVisible} 
+        onClose={() => setIsAuthVisible(false)} 
+        onLoginSuccess={(name) => setUsername(name)} 
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: FinanceColors.backgroundGrouped,
-    alignItems: 'center',
-    justifyContent: 'center',
+  container: { flex: 1, backgroundColor: '#F2F2F7' },
+  scroll: { padding: 20 },
+  header: { fontSize: 34, fontWeight: '800', marginBottom: 20, letterSpacing: 0.5 },
+  section: { marginBottom: 25 },
+  sectionLabel: { fontSize: 13, color: '#8E8E93', marginBottom: 8, marginLeft: 10, fontWeight: '500' },
+  card: { backgroundColor: 'white', borderRadius: 12, overflow: 'hidden' },
+  item: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    padding: 12, 
+    marginLeft: 15,
+    borderBottomWidth: StyleSheet.hairlineWidth, 
+    borderBottomColor: '#C7C7CC' 
   },
-  text: {
-    fontSize: 20,
-    fontWeight: '600',
-  },
+  iconBox: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  itemTitle: { flex: 1, fontSize: 17, color: '#000' },
+  rightContent: { flexDirection: 'row', alignItems: 'center' },
+  itemValue: { fontSize: 17, color: '#8E8E93', marginRight: 8 }
 });
