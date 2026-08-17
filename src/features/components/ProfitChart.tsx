@@ -181,7 +181,6 @@ export function ProfitChart({
           </View>
         </View>
       ) : (
-        // РЕЖИМ ДЕТАЛИЗАЦИИ (занимает всё пространство)
         <Pressable style={styles.detailWrapper} onPress={handleBack}>
           <View style={styles.detailHeader}>
             <Text style={styles.backArrow}>{'<'}</Text>
@@ -216,8 +215,8 @@ export function ProfitChart({
 const styles = StyleSheet.create({
   container: {
     padding: 20,
-    paddingVertical: 15,   // УМЕНЬШИЛИ (было 20) — это отступ от края карточки до текста
-    height: 280,           // Можно чуть уменьшить общую высоту, если нужно
+    paddingVertical: 15,  
+    height: 280,        
     justifyContent: 'center',
   },
   fullHeight: {
@@ -238,7 +237,7 @@ const styles = StyleSheet.create({
     color: '#007AFF',
   },
   chartAreaWrapper: {
-    flex: 1, // Занимает всё место между шапкой и навигатором
+    flex: 1,
     paddingVertical: 5,
     marginVertical: 4,
   },
