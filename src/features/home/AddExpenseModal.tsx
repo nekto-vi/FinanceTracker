@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Modal, View, Text, TextInput, StyleSheet, TouchableOpacity, 
-  ScrollView, SafeAreaView, Dimensions, Keyboard, FlatList
+  ScrollView, SafeAreaView, Dimensions, Keyboard, FlatList 
 } from 'react-native';
 import { SymbolView } from 'expo-symbols';
+import * as SecureStore from 'expo-secure-store';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -17,6 +18,8 @@ interface Props {
   onSave: (data: any) => void;
 }
 
+const MONTHS = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+
 export function AddExpenseModal({ isVisible, category, account, allCategories, allAccounts, onClose, onSave }: Props) {
   const [amount, setAmount] = useState('0');
   const [comment, setComment] = useState('');
@@ -27,7 +30,6 @@ export function AddExpenseModal({ isVisible, category, account, allCategories, a
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [history, setHistory] = useState<any[]>([]);
 
-  // Генерируем даты (7 последних дней)
   const dates = [...Array(7)].map((_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - i);
@@ -35,22 +37,29 @@ export function AddExpenseModal({ isVisible, category, account, allCategories, a
   }).reverse();
 
   useEffect(() => {
-    if (isVisible) {
+    if (isVisible && category && account) {
       setSelectedCat(category);
       setSelectedAcc(account);
-      fetchHistory();
       setAmount('0');
       setComment('');
       setShowCalc(false);
+      fetchHistory();
     }
   }, [isVisible, category, account]);
 
   const fetchHistory = async () => {
+    const token = await SecureStore.getItemAsync('userToken');
+    if (!token) return;
     try {
-      const res = await fetch(`http://127.0.0.1:8000/transactions/history?month=${new Date().getMonth() + 1}`);
+      const month = new Date().getMonth() + 1;
+      const res = await fetch(`http://127.0.0.1:8000/transactions/history?month=${month}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const data = await res.json();
-      setHistory(data);
-    } catch (e) { console.log(e); }
+      setHistory(Array.isArray(data) ? data : []);
+    } catch (e) { 
+      setHistory([]); 
+    }
   };
 
   const handleCalcPress = (val: string) => {
@@ -59,31 +68,23 @@ export function AddExpenseModal({ isVisible, category, account, allCategories, a
     setAmount(prev => (prev === '0' ? val : prev + val));
   };
 
-  const onFinalSave = () => {
-    onSave({
-      amount: parseFloat(amount),
-      account_id: selectedAcc.id,
-      category_id: selectedCat.id,
-      note: comment,
-      date: selectedDate.toISOString().split('T')[0]
-    });
-  };
+  if (!isVisible || !selectedCat || !selectedAcc) return null;
 
   return (
     <Modal visible={isVisible} animationType="slide" presentationStyle="fullScreen">
       <View style={styles.container}>
-        <SafeAreaView style={styles.safe}>
+        <SafeAreaView style={{ flex: 1 }}>
           {/* Header */}
           <View style={styles.header}>
              <TouchableOpacity onPress={onClose} hitSlop={15}>
-                <SymbolView name="xmark" size={20} tintColor="#8E8E93" />
+                <SymbolView name="xmark" size={20} tintColor="#000" />
              </TouchableOpacity>
-             <Text style={styles.headerTitle}>Новая операция</Text>
+             <Text style={styles.headerTitle}>Расход</Text>
              <View style={{width: 20}} />
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            {/* Название и Сумма */}
+            {/* Сумма по центру */}
             <View style={styles.centerBlock}>
               <Text style={styles.topCatName}>{selectedCat?.name}</Text>
               <TouchableOpacity onPress={() => { Keyboard.dismiss(); setShowCalc(true); }}>
@@ -91,10 +92,10 @@ export function AddExpenseModal({ isVisible, category, account, allCategories, a
               </TouchableOpacity>
             </View>
 
-            {/* Account -> Category Flow */}
+            {/* Путь: Счет -> Категория */}
             <View style={styles.pathContainer}>
                 <View style={styles.pathItem}>
-                    <Text style={styles.pathLabel}>Счет</Text>
+                    <Text style={styles.pathLabel}>Счёт</Text>
                     <TouchableOpacity 
                         onPress={() => {
                             const idx = allAccounts.findIndex(a => a.id === selectedAcc.id);
@@ -104,11 +105,10 @@ export function AddExpenseModal({ isVisible, category, account, allCategories, a
                     >
                         <SymbolView name="creditcard.fill" size={24} tintColor="white" />
                     </TouchableOpacity>
-                    <Text style={styles.pathName}>{selectedAcc?.name}</Text>
-                    <Text style={styles.pathValue}>{selectedAcc?.balance.toLocaleString()} BYN</Text>
+                    <Text style={styles.pathValue}>{(selectedAcc?.balance || 0).toLocaleString()} BYN</Text>
                 </View>
 
-                <SymbolView name="chevron.right" size={20} tintColor="#333" />
+                <SymbolView name="chevron.right" size={18} tintColor="#C7C7CC" />
 
                 <View style={styles.pathItem}>
                     <Text style={styles.pathLabel}>Категория</Text>
@@ -121,24 +121,24 @@ export function AddExpenseModal({ isVisible, category, account, allCategories, a
                     >
                         <Text style={{fontSize: 24}}>{selectedCat?.icon}</Text>
                     </TouchableOpacity>
-                    <Text style={styles.pathName}>{selectedCat?.name}</Text>
-                    <Text style={styles.pathValue}>{selectedCat?.amount} BYN потрачено</Text>
+                    <Text style={styles.pathValue}>{(selectedCat?.amount || 0).toLocaleString()} BYN</Text>
                 </View>
             </View>
 
-            {/* Comment */}
+            {/* Комментарий */}
             <View style={styles.inputSection}>
+                <Text style={styles.sectionLabel}>Комментарий</Text>
                 <TextInput 
                   style={styles.commentInput}
-                  placeholder="Добавить комментарий..."
-                  placeholderTextColor="#444"
+                  placeholder="На что потратили?"
+                  placeholderTextColor="#C7C7CC"
                   value={comment}
                   onChangeText={setComment}
                   onFocus={() => setShowCalc(false)}
                 />
             </View>
 
-            {/* Date Selector */}
+            {/* Дата */}
             <View style={styles.dateSection}>
                 <Text style={styles.sectionLabel}>Дата</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -151,7 +151,7 @@ export function AddExpenseModal({ isVisible, category, account, allCategories, a
                                 onPress={() => setSelectedDate(d)}
                             >
                                 <Text style={[styles.dateCardText, isSelected && {color: 'white'}]}>
-                                    {d.getDate()} {d.toLocaleString('ru-RU', {month: 'short'})}
+                                    {d.getDate()} {MONTHS[d.getMonth()]}
                                 </Text>
                             </TouchableOpacity>
                         );
@@ -159,10 +159,10 @@ export function AddExpenseModal({ isVisible, category, account, allCategories, a
                 </ScrollView>
             </View>
 
-            {/* History List */}
+            {/* Список операций */}
             <View style={styles.historySection}>
-                <Text style={styles.historyTitle}>История операций</Text>
-                {history.map((h, i) => (
+                <Text style={styles.historyTitle}>Последние операции</Text>
+                {(history || []).map((h, i) => (
                     <View key={i} style={styles.hItem}>
                         <View style={styles.hRow}>
                             <Text style={styles.hDate}>{new Date(h.created_at).toLocaleDateString('ru-RU')}</Text>
@@ -174,17 +174,26 @@ export function AddExpenseModal({ isVisible, category, account, allCategories, a
             </View>
           </ScrollView>
 
-          {/* Калькулятор с кнопкой Save */}
+          {/* Калькулятор */}
           {showCalc && (
             <View style={styles.calcContainer}>
-              <TouchableOpacity style={styles.bigSaveBtn} onPress={onFinalSave}>
+              <TouchableOpacity 
+                style={styles.bigSaveBtn} 
+                onPress={() => onSave({
+                  amount: parseFloat(amount),
+                  account_id: selectedAcc.id,
+                  category_id: selectedCat.id,
+                  note: comment,
+                  date: selectedDate.toISOString().split('T')[0]
+                })}
+              >
                   <Text style={styles.saveBtnText}>Сохранить</Text>
               </TouchableOpacity>
               <View style={styles.calcGrid}>
                 {['1','2','3','4','5','6','7','8','9','.', '0', 'delete'].map(num => (
                   <TouchableOpacity key={num} style={styles.calcKey} onPress={() => handleCalcPress(num)}>
                     {num === 'delete' ? (
-                      <SymbolView name="delete.left" size={24} tintColor="white" />
+                      <SymbolView name="delete.left" size={24} tintColor="#000" />
                     ) : (
                       <Text style={styles.calcKeyText}>{num}</Text>
                     )}
@@ -195,7 +204,16 @@ export function AddExpenseModal({ isVisible, category, account, allCategories, a
           )}
 
           {!showCalc && (
-            <TouchableOpacity style={styles.bottomSaveBtn} onPress={onFinalSave}>
+            <TouchableOpacity 
+              style={styles.bottomSaveBtn} 
+              onPress={() => onSave({
+                amount: parseFloat(amount),
+                account_id: selectedAcc.id,
+                category_id: selectedCat.id,
+                note: comment,
+                date: selectedDate.toISOString().split('T')[0]
+              })}
+            >
                 <Text style={styles.saveBtnText}>Сохранить</Text>
             </TouchableOpacity>
           )}
@@ -206,187 +224,184 @@ export function AddExpenseModal({ isVisible, category, account, allCategories, a
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
+  container: { 
+    flex: 1, 
+    backgroundColor: '#FFFFFF' // ЧИСТО БЕЛЫЙ ФОН
   },
-  safe: {
-    flex: 1,
+  header: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    padding: 15, 
+    alignItems: 'center' 
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: 15,
-    alignItems: 'center',
+  headerTitle: { 
+    color: '#000000', 
+    fontSize: 17, 
+    fontWeight: '700' 
   },
-  headerTitle: {
-    color: 'white',
-    fontSize: 17,
-    fontWeight: '600',
+  centerBlock: { 
+    alignItems: 'center', 
+    marginVertical: 20 
   },
-  centerBlock: {
-    alignItems: 'center',
-    marginVertical: 20,
+  topCatName: { 
+    color: '#8E8E93', 
+    fontSize: 16, 
+    marginBottom: 5 
   },
-  topCatName: {
-    color: '#8E8E93',
-    fontSize: 16,
-    marginBottom: 5,
+  mainAmount: { 
+    color: '#000000', 
+    fontSize: 48, 
+    fontWeight: '800' 
   },
-  mainAmount: {
-    color: 'white',
-    fontSize: 44,
-    fontWeight: '800',
+  pathContainer: { 
+    flexDirection: 'row', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    gap: 20, 
+    marginBottom: 25 
   },
-  pathContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 25,
-    marginBottom: 25,
+  pathItem: { 
+    alignItems: 'center', 
+    width: 110 
   },
-  pathItem: {
-    alignItems: 'center',
-    width: 110,
+  pathLabel: { 
+    color: '#8E8E93', 
+    fontSize: 11, 
+    marginBottom: 8, 
+    textTransform: 'uppercase', 
+    fontWeight: '600' 
   },
-  pathLabel: {
-    color: '#444',
-    fontSize: 10,
+  iconCircle: { 
+    width: 64, 
+    height: 64, 
+    borderRadius: 32, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
     marginBottom: 8,
-    textTransform: 'uppercase',
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 2
   },
-  iconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
+  pathValue: { 
+    color: '#000000', 
+    fontSize: 13, 
+    fontWeight: '600' 
   },
-  pathName: {
-    color: 'white',
-    fontSize: 15,
-    fontWeight: 'bold',
-    marginBottom: 2,
+  inputSection: { 
+    paddingHorizontal: 20, 
+    marginBottom: 20 
   },
-  pathValue: {
-    color: '#8E8E93',
-    fontSize: 11,
+  sectionLabel: { 
+    color: '#007AFF', 
+    fontSize: 12, 
+    fontWeight: 'bold', 
+    marginBottom: 10 
   },
-  inputSection: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
+  commentInput: { 
+    backgroundColor: '#F2F2F7', 
+    borderRadius: 14, 
+    padding: 16, 
+    color: '#000000', 
+    fontSize: 16 
   },
-  commentInput: {
-    backgroundColor: '#1C1C1E',
-    borderRadius: 12,
-    padding: 15,
-    color: 'white',
-    fontSize: 16,
+  dateSection: { 
+    paddingLeft: 20, 
+    marginBottom: 25 
   },
-  dateSection: {
-    paddingLeft: 20,
-    marginBottom: 20,
+  dateCard: { 
+    backgroundColor: '#F2F2F7', 
+    padding: 12, 
+    borderRadius: 12, 
+    marginRight: 10, 
+    width: 75, 
+    alignItems: 'center' 
   },
-  sectionLabel: {
-    color: '#007AFF',
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginBottom: 10,
+  dateCardActive: { 
+    backgroundColor: '#007AFF' 
   },
-  dateCard: {
-    backgroundColor: '#1C1C1E',
-    padding: 12,
-    borderRadius: 12,
-    marginRight: 10,
-    width: 75,
-    alignItems: 'center',
+  dateCardText: { 
+    color: '#8E8E93', 
+    fontSize: 13, 
+    fontWeight: '600' 
   },
-  dateCardActive: {
-    backgroundColor: '#007AFF',
+  historySection: { 
+    marginTop: 20, 
+    padding: 20, 
+    backgroundColor: '#FFFFFF', // Тоже белый
+    borderTopWidth: 1,
+    borderTopColor: '#F2F2F7',
+    minHeight: 300 
   },
-  dateCardText: {
-    color: '#8E8E93',
-    fontSize: 13,
-    fontWeight: '600',
+  historyTitle: { 
+    color: '#000000', 
+    fontSize: 18, 
+    fontWeight: 'bold', 
+    marginBottom: 15 
   },
-  historySection: {
-    marginTop: 20,
-    padding: 20,
-    backgroundColor: '#0A0A0A',
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    minHeight: 300,
+  hItem: { 
+    marginBottom: 15, 
+    borderBottomWidth: 1, 
+    borderBottomColor: '#F2F2F7', 
+    paddingBottom: 10 
   },
-  historyTitle: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
+  hRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    marginBottom: 5 
   },
-  hItem: {
-    marginBottom: 15,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#222',
-    paddingBottom: 10,
+  hDate: { 
+    color: '#8E8E93', 
+    fontSize: 12 
   },
-  hRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 5,
+  hAmount: { 
+    color: '#000000', 
+    fontSize: 15, 
+    fontWeight: 'bold' 
   },
-  hDate: {
-    color: '#444',
-    fontSize: 12,
+  hNote: { 
+    color: '#444444', 
+    fontSize: 14 
   },
-  hAmount: {
-    color: 'white',
-    fontSize: 15,
-    fontWeight: 'bold',
+  calcContainer: { 
+    backgroundColor: '#F2F2F7', 
+    borderTopLeftRadius: 30, 
+    borderTopRightRadius: 30, 
+    padding: 20 
   },
-  hNote: {
-    color: '#8E8E93',
-    fontSize: 14,
+  bigSaveBtn: { 
+    backgroundColor: '#007AFF', 
+    padding: 18, 
+    borderRadius: 16, 
+    alignItems: 'center', 
+    marginBottom: 15 
   },
-  calcContainer: {
-    backgroundColor: '#1C1C1E',
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-    padding: 20,
+  bottomSaveBtn: { 
+    backgroundColor: '#007AFF', 
+    margin: 20, 
+    padding: 18, 
+    borderRadius: 16, 
+    alignItems: 'center' 
   },
-  bigSaveBtn: {
-    backgroundColor: '#007AFF',
-    padding: 16,
-    borderRadius: 14,
-    alignItems: 'center',
-    marginBottom: 15,
+  saveBtnText: { 
+    color: '#FFFFFF', 
+    fontSize: 17, 
+    fontWeight: '700' 
   },
-  bottomSaveBtn: {
-    backgroundColor: '#007AFF',
-    margin: 20,
-    padding: 18,
-    borderRadius: 15,
-    alignItems: 'center',
+  calcGrid: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    justifyContent: 'center' 
   },
-  saveBtnText: {
-    color: 'white',
-    fontSize: 17,
-    fontWeight: '700',
+  calcKey: { 
+    width: SCREEN_W / 3.8, 
+    height: 55, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
   },
-  calcGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  calcKey: {
-    width: SCREEN_W / 3.8,
-    height: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  calcKeyText: {
-    color: 'white',
-    fontSize: 24,
-    fontWeight: '500',
+  calcKeyText: { 
+    color: '#000000', 
+    fontSize: 24, 
+    fontWeight: '500' 
   },
 });

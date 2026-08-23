@@ -1,77 +1,53 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
-
-const STORAGE_KEYS = {
-  TOKEN: 'user_token',
-  USERNAME: 'user_name',
-} as const;
 
 interface AuthContextType {
   userToken: string | null;
-  userName: string | null;
+  username: string | null; 
   isLoading: boolean;
   signIn: (token: string, username: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | null>(null);
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [userToken, setUserToken] = useState<string | null>(null);
-  const [userName, setUserName] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [username, setUsername] = useState<string | null>(null); // Состояние имени
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const bootstrapAsync = async () => {
+    const loadData = async () => {
       try {
-        const [token, name] = await Promise.all([
-          SecureStore.getItemAsync(STORAGE_KEYS.TOKEN),
-          SecureStore.getItemAsync(STORAGE_KEYS.USERNAME),
-        ]);
-
-        if (token) setUserToken(token);
-        if (name) setUserName(name);
-      } catch (error) {
-        console.error('[AuthContext]: Failed to restore session', error);
+        const token = await SecureStore.getItemAsync('userToken');
+        const savedName = await SecureStore.getItemAsync('username');
+        setUserToken(token);
+        setUsername(savedName);
+      } catch (e) {
+        console.error(e);
       } finally {
         setIsLoading(false);
       }
     };
-
-    bootstrapAsync();
+    loadData();
   }, []);
 
-  const signIn = async (token: string, username: string) => {
-    try {
-      await Promise.all([
-        SecureStore.setItemAsync(STORAGE_KEYS.TOKEN, token),
-        SecureStore.setItemAsync(STORAGE_KEYS.USERNAME, username),
-      ]);
-      
-      setUserToken(token);
-      setUserName(username);
-    } catch (error) {
-      console.error('[AuthContext]: Sign in storage error', error);
-      throw error; 
-    }
+  const signIn = async (token: string, name: string) => {
+    await SecureStore.setItemAsync('userToken', token);
+    await SecureStore.setItemAsync('username', name);
+    setUserToken(token);
+    setUsername(name); 
   };
 
   const signOut = async () => {
-    try {
-      await Promise.all([
-        SecureStore.deleteItemAsync(STORAGE_KEYS.TOKEN),
-        SecureStore.deleteItemAsync(STORAGE_KEYS.USERNAME),
-      ]);
-      
-      setUserToken(null);
-      setUserName(null);
-    } catch (error) {
-      console.error('[AuthContext]: Sign out storage error', error);
-    }
+    await SecureStore.deleteItemAsync('userToken');
+    await SecureStore.deleteItemAsync('username');
+    setUserToken(null);
+    setUsername(null); 
   };
 
   return (
-    <AuthContext.Provider value={{ userToken, userName, isLoading, signIn, signOut }}>
+    <AuthContext.Provider value={{ userToken, username, isLoading, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );
@@ -79,8 +55,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };
