@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ScrollView, StyleSheet, Text, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -25,6 +25,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { signOut } = useAuth();
 
+  // --- СОСТОЯНИЯ ---
   const [currentMonday, setCurrentMonday] = useState(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -41,6 +42,9 @@ export default function HomeScreen() {
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const [isAddCatModalVisible, setAddCatModalVisible] = useState(false);
+  
+  // Режим модалки: трата или доход
+  const [modalMode, setModalMode] = useState<'expense' | 'income'>('expense');
 
   const handleLogout = async () => {
     await signOut();
@@ -93,6 +97,8 @@ export default function HomeScreen() {
     refreshAllData(currentMonday);
   }, [currentMonday]);
 
+  // --- ОБРАБОТЧИКИ ---
+
   const handleMonthChange = (index: number) => {
     const newMonth = index + 1;
     const firstDay = new Date(new Date().getFullYear(), index, 1);
@@ -115,7 +121,7 @@ export default function HomeScreen() {
   };
 
   const handleSaveExpense = async (data: any) => {
-    if (!selectedAccountId || !selectedCategory) return;
+    if (!selectedAccountId) return;
     const token = await SecureStore.getItemAsync('userToken');
 
     try {
@@ -127,11 +133,11 @@ export default function HomeScreen() {
         },
         body: JSON.stringify({
           amount: data.amount,
-          account_id: selectedAccountId,
-          category_id: selectedCategory.id,
+          account_id: data.account_id,
+          category_id: data.category_id, // Может быть null для дохода
           note: data.note,   
           date: data.date,
-          type: "expense"
+          type: data.type // Используем тип из модалки (income/expense)
         }),
       });
 
@@ -142,6 +148,14 @@ export default function HomeScreen() {
     } catch (e) {
       console.error(e);
     }
+  };
+
+  // Открытие окна пополнения баланса
+  const openTopUp = (accId: number) => {
+    setSelectedAccountId(accId);
+    setModalMode('income');
+    // Используем фейковую категорию, чтобы сработал isVisible модалки
+    setSelectedCategory({ name: 'Пополнение', id: null });
   };
 
   const getWeekRangeLabel = (monday: Date) => {
@@ -182,7 +196,11 @@ export default function HomeScreen() {
                 icon={acc.name === "Карта" ? "creditcard.fill" : "dollarsign.circle.fill"}
                 color={acc.name === "Карта" ? "#007AFF" : "#34C759"}
                 isSelected={selectedAccountId === acc.id}
-                onPress={() => setSelectedAccountId(acc.id)} 
+                onPress={() => {
+                  setSelectedAccountId(acc.id);
+                  setModalMode('expense'); // Если просто выбираем, то для будущей траты
+                }} 
+                onPlusPress={() => openTopUp(acc.id)} // Нажатие на плюс
               />
             ))}
           </View>
@@ -192,6 +210,7 @@ export default function HomeScreen() {
             categories={categories}
             onCategoryPress={(id) => {
               const cat = categories.find((c) => String(c.id) === String(id));
+              setModalMode('expense');
               setSelectedCategory(cat);
             }}
             onAddPress={() => setAddCatModalVisible(true)}
@@ -220,6 +239,7 @@ export default function HomeScreen() {
         isVisible={!!selectedCategory}
         category={selectedCategory}
         account={accounts.find(a => a.id === selectedAccountId)} 
+        initialType={modalMode}
         onClose={() => setSelectedCategory(null)}
         onSave={handleSaveExpense}
       />
@@ -229,10 +249,33 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: FinanceColors.backgroundGrouped },
-  wrapper: { flex: 1, paddingHorizontal: 20 },
-  header: { paddingVertical: 10, alignItems: 'center' },
-  card: { backgroundColor: FinanceColors.card, borderRadius: 25, marginTop: 5, overflow: 'hidden' },
-  sectionTitle: { fontSize: 20, fontWeight: 'bold', marginTop: 15, marginBottom: 8 },
-  accountsRow: { flexDirection: 'row', gap: 12, marginBottom: 5 },
+  container: {
+    flex: 1,
+    backgroundColor: FinanceColors.backgroundGrouped
+  },
+  wrapper: {
+    flex: 1,
+    paddingHorizontal: 20
+  },
+  header: {
+    paddingVertical: 10,
+    alignItems: 'center'
+  },
+  card: {
+    backgroundColor: FinanceColors.card,
+    borderRadius: 25,
+    marginTop: 5,
+    overflow: 'hidden'
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginTop: 15,
+    marginBottom: 8
+  },
+  accountsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 5
+  }
 });

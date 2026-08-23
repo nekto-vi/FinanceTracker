@@ -1,51 +1,41 @@
+// src/features/components/AccountCard.tsx
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { SymbolView, SFSymbol } from 'expo-symbols';
 import { FinanceColors } from '@/constants/theme';
 
-interface AccountCardProps {
+interface Props {
   title: string;
   amount: string;
   icon: SFSymbol;
   color: string;
   isSelected?: boolean;
-  onPress?: () => void; 
+  onPress?: () => void;
+  onPlusPress?: () => void; 
 }
 
-export function AccountCard({ 
-  title, 
-  amount, 
-  icon, 
-  color, 
-  isSelected, 
-  onPress 
-}: AccountCardProps) {
-  
+export function AccountCard({ title, amount, icon, color, isSelected, onPress, onPlusPress }: Props) {
   return (
     <Pressable 
       onPress={onPress} 
-      style={({ pressed }) => [
-        styles.container,
-        isSelected && { borderColor: color },
-        { opacity: pressed ? 0.8 : 1 }
+      style={[
+        styles.container, 
+        isSelected && { borderColor: color, borderWidth: 2 }
       ]}
     >
-      <View style={[styles.iconWrapper, { backgroundColor: `${color}15` }]}>
-        <SymbolView 
-          name={icon} 
-          size={22} 
-          tintColor={color} 
-        />
-      </View>
-
+      <SymbolView name={icon} size={24} tintColor={color} />
       <View style={styles.textContainer}>
-        <Text style={styles.title} numberOfLines={1}>
-          {title}
-        </Text>
-        <Text style={styles.amount} numberOfLines={1}>
-          {amount}
-        </Text>
+        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.amount}>{amount}</Text>
       </View>
+      
+      {/* Кнопка пополнения */}
+      <Pressable 
+        onPress={onPlusPress} 
+        style={({pressed}) => [styles.plusBtn, pressed && {opacity: 0.5}]}
+      >
+        <SymbolView name="plus.circle.fill" size={22} tintColor="#34C759" />
+      </Pressable>
     </Pressable>
   );
 }
@@ -53,41 +43,23 @@ export function AccountCard({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: FinanceColors.card,
+    backgroundColor: 'white',
     borderRadius: 20,
     paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: 'transparent',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 10,
+    shadowRadius: 5,
     elevation: 2,
-    margin: 4,
   },
-  iconWrapper: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  textContainer: { 
-    marginLeft: 12,
-    flex: 1,
-  },
-  title: { 
-    color: FinanceColors.textMuted, 
-    fontSize: 12,
-    fontWeight: '500',
-    marginBottom: 2
-  },
-  amount: { 
-    fontSize: 16, 
-    fontWeight: '700', 
-    color: FinanceColors.textPrimary 
-  },
+  textContainer: { flex: 1, marginLeft: 10 },
+  title: { color: '#8E8E93', fontSize: 12 },
+  amount: { fontSize: 15, fontWeight: 'bold', color: '#000' },
+  plusBtn: {
+    padding: 4,
+  }
 });
