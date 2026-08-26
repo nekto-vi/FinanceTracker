@@ -99,6 +99,39 @@ export default function HomeScreen() {
 
   // --- ОБРАБОТЧИКИ ---
 
+
+const handleOnConfirmCategory = async (newCat: any) => {
+  const token = await SecureStore.getItemAsync('userToken');
+  
+  if (!token) {
+    Alert.alert("Ошибка", "Вы не авторизованы");
+    return;
+  }
+
+  try {
+    const response = await fetch('http://127.0.0.1:8000/categories', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}` 
+      },
+      body: JSON.stringify(newCat)
+    });
+
+    if (response.ok) {
+      await refreshAllData(currentMonday); 
+      setAddCatModalVisible(false);
+    } else {
+      const errorData = await response.json();
+      console.error("Ошибка сервера:", errorData);
+      Alert.alert("Ошибка", errorData.detail || "Не удалось создать категорию");
+    }
+  } catch (e) {
+    console.error("Ошибка сети:", e);
+    Alert.alert("Ошибка", "Нет связи с сервером");
+  }
+};
+
   const handleMonthChange = (index: number) => {
     const newMonth = index + 1;
     const firstDay = new Date(new Date().getFullYear(), index, 1);
@@ -198,9 +231,9 @@ export default function HomeScreen() {
                 isSelected={selectedAccountId === acc.id}
                 onPress={() => {
                   setSelectedAccountId(acc.id);
-                  setModalMode('expense'); // Если просто выбираем, то для будущей траты
+                  setModalMode('expense'); 
                 }} 
-                onPlusPress={() => openTopUp(acc.id)} // Нажатие на плюс
+                onPlusPress={() => openTopUp(acc.id)} 
               />
             ))}
           </View>
@@ -221,16 +254,7 @@ export default function HomeScreen() {
       <AddCategoryModal 
         isVisible={isAddCatModalVisible}
         onClose={() => setAddCatModalVisible(false)}
-        onConfirm={async (newCat) => {
-            const token = await SecureStore.getItemAsync('userToken');
-            await fetch('http://127.0.0.1:8000/categories', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-              body: JSON.stringify(newCat)
-            });
-            refreshAllData(currentMonday); 
-            setAddCatModalVisible(false);
-        }}
+        onConfirm={handleOnConfirmCategory}
       />
 
       <AddExpenseModal 
