@@ -13,6 +13,7 @@ import { AddCategoryModal } from './components/AddCategoryModal';
 import { MonthPicker } from './components/MonthPicker';
 import { AddExpenseModal } from '@/features/home/AddExpenseModal';
 import { useAuth } from '@/context/AuthContext';
+import { API_CONFIG } from '@/constants/Config';
 
 const formatDateForBack = (date: Date) => {
   const year = date.getFullYear();
@@ -20,6 +21,11 @@ const formatDateForBack = (date: Date) => {
   const day = date.getDate().toString().padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
+
+const sortAccounts = (accountList: any[]) => [...accountList].sort((firstAccount, secondAccount) => {
+  const accountOrder: Record<string, number> = { Карта: 0, Наличные: 1 };
+  return (accountOrder[firstAccount.name] ?? 2) - (accountOrder[secondAccount.name] ?? 2);
+});
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -46,6 +52,8 @@ export default function HomeScreen() {
   // Режим модалки: трата или доход
   const [modalMode, setModalMode] = useState<'expense' | 'income'>('expense');
 
+  const orderedAccounts = sortAccounts(accounts);
+
   const handleLogout = async () => {
     await signOut();
   };
@@ -62,35 +70,50 @@ export default function HomeScreen() {
 
     try {
       const headers = { 'Authorization': `Bearer ${token}` };
-      
-      const [catsRes, accsRes, summaryRes, statsRes] = await Promise.all([
-        fetch(`http://127.0.0.1:8000/categories?month=${month}&year=${year}`, { headers }),
-        fetch('http://127.0.0.1:8000/accounts', { headers }),
-        fetch(`http://127.0.0.1:8000/stats/summary?month=${month}&year=${year}`, { headers }),
-        fetch(`http://127.0.0.1:8000/stats/weekly?start_date=${dateStr}`, { headers })
-      ]);
+      const baseUrl = API_CONFIG.BASE_URL;
 
-      if (catsRes.status === 401) {
-        handleLogout();
-        return;
+        const [catsRes, accsRes, summaryRes, statsRes] = await Promise.all([
+          fetch(`${baseUrl}/categories?month=${month}&year=${year}`, { headers }),
+          fetch(`${baseUrl}/accounts`, { headers }),
+          fetch(`${baseUrl}/stats/summary?month=${month}&year=${year}`, { headers }),
+          fetch(`${baseUrl}/stats/weekly?start_date=${dateStr}`, { headers })
+        ]);
+
+        if ([catsRes, accsRes, summaryRes, statsRes].some((response) => response.status === 401)) {
+          await handleLogout();
+          return;
+        }
+
+        if (!catsRes.ok || !accsRes.ok || !summaryRes.ok || !statsRes.ok) {
+          console.error('Ошибка при обновлении данных:', {
+            categories: catsRes.status,
+            accounts: accsRes.status,
+            summary: summaryRes.status,
+            weekly: statsRes.status,
+          });
+          return;
+        }
+
+        const catsResponse = await catsRes.json();
+        const accountsResponse = await accsRes.json();
+        const summaryData = await summaryRes.json();
+        const weeklyResponse = await statsRes.json();
+        const catsData = Array.isArray(catsResponse) ? catsResponse : [];
+        const accsData = Array.isArray(accountsResponse) ? accountsResponse : [];
+        const statsData = Array.isArray(weeklyResponse) ? weeklyResponse : [];
+        const sortedAccounts = sortAccounts(accsData);
+
+        setCategories(catsData.map((category: any) => ({ ...category, icon: category.emoji })));
+        setAccounts(sortedAccounts);
+        setMonthlyProfit(summaryData.profit ?? 0);
+        setChartData(statsData);
+
+        if (accsData.length > 0 && selectedAccountId === null) {
+          setSelectedAccountId(sortedAccounts[0].id);
+        }
+      } catch (e) {
+        console.error("Ошибка сети:", e);
       }
-
-      const catsData = await catsRes.json();
-      const accsData = await accsRes.json();
-      const summaryData = await summaryRes.json();
-      const statsData = await statsRes.json();
-
-      setCategories(catsData.map((c: any) => ({ ...c, icon: c.emoji })));
-      setAccounts(accsData);
-      setMonthlyProfit(summaryData.profit);
-      setChartData(statsData);
-
-      if (accsData.length > 0 && selectedAccountId === null) {
-        setSelectedAccountId(accsData[0].id);
-      }
-    } catch (e) {
-      console.error("Ошибка при обновлении данных:", e);
-    }
   };
 
   useEffect(() => {
@@ -109,22 +132,35 @@ const handleOnConfirmCategory = async (newCat: any) => {
   }
 
   try {
-    const response = await fetch('http://127.0.0.1:8000/categories', {
+    const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CATEGORIES}`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}` 
       },
-      body: JSON.stringify(newCat)
+      body: JSON.stringify({
+        name: newCat.name,
+        emoji: newCat.icon,
+        color: newCat.color,
+      })
     });
 
     if (response.ok) {
       await refreshAllData(currentMonday); 
       setAddCatModalVisible(false);
     } else {
-      const errorData = await response.json();
+      const errorText = await response.text();
+      let errorData: { detail?: string | Array<{ msg?: string }> } = {};
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { detail: errorText };
+      }
       console.error("Ошибка сервера:", errorData);
-      Alert.alert("Ошибка", errorData.detail || "Не удалось создать категорию");
+      const detail = Array.isArray(errorData.detail)
+        ? errorData.detail.map((item) => item.msg).filter(Boolean).join(', ')
+        : errorData.detail;
+      Alert.alert("Ошибка", detail || "Не удалось создать категорию");
     }
   } catch (e) {
     console.error("Ошибка сети:", e);
@@ -158,7 +194,7 @@ const handleOnConfirmCategory = async (newCat: any) => {
     const token = await SecureStore.getItemAsync('userToken');
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/transactions', {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.TRANSACTIONS}`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -203,13 +239,18 @@ const handleOnConfirmCategory = async (newCat: any) => {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.wrapper}>
         <View style={styles.header}>
-          <MonthPicker onMonthChange={handleMonthChange} selectedMonth={selectedMonth} />
+          <MonthPicker 
+            onMonthChange={handleMonthChange} 
+            selectedMonth={selectedMonth} 
+            selectedYear={currentMonday.getFullYear()} 
+          />
+
         </View>
 
         <ScrollView showsVerticalScrollIndicator={false}>
           <View style={styles.card}>
             <ProfitChart
-              currentBalance={accounts.reduce((sum, a) => sum + a.balance, 0)}
+              currentBalance={orderedAccounts.reduce((sum, account) => sum + account.balance, 0)}
               monthlyProfit={monthlyProfit}
               weekRange={getWeekRangeLabel(currentMonday)} 
               data={chartData}
@@ -221,7 +262,7 @@ const handleOnConfirmCategory = async (newCat: any) => {
 
           <Text style={styles.sectionTitle}>Счета</Text>
           <View style={styles.accountsRow}>
-            {accounts.map((acc) => (
+            {orderedAccounts.map((acc) => (
               <AccountCard 
                 key={acc.id}
                 title={acc.name}

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   StyleSheet,
   TextInput,
@@ -7,7 +7,6 @@ import {
   Pressable,
   View,
 } from 'react-native';
-
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -18,7 +17,6 @@ import Animated, {
   interpolateColor,
   withSequence,
 } from 'react-native-reanimated';
-
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SymbolView } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,6 +25,7 @@ const { width: SCREEN_W } = Dimensions.get('window');
 const FAB_SIZE = 56;
 const SIDE_MARGIN = 20;
 const BOTTOM_MARGIN = 20;
+const KEYBOARD_GAP = 16;
 const EXPANDED_WIDTH = SCREEN_W - SIDE_MARGIN * 2;
 
 const LEFT_EDGE = SIDE_MARGIN;
@@ -45,17 +44,45 @@ export function AIAgentFab() {
   const expandProgress = useSharedValue(0);
   const recordingProgress = useSharedValue(0);
   const flashAnim = useSharedValue(0);
+  const keyboardOffset = useSharedValue(0);
+
+  useEffect(() => {
+    const handleKeyboardFrame = (event: { endCoordinates: { height: number } }) => {
+      const keyboardHeight = event.endCoordinates.height;
+      keyboardOffset.value = withTiming(
+        Math.max(0, keyboardHeight - BOTTOM_MARGIN - insets.bottom + KEYBOARD_GAP),
+        { duration: 220 }
+      );
+    };
+    const handleKeyboardHide = () => {
+      keyboardOffset.value = withTiming(0, { duration: 180 });
+    };
+
+    const frameSubscription = Keyboard.addListener('keyboardWillChangeFrame', handleKeyboardFrame);
+    const hideSubscription = Keyboard.addListener('keyboardWillHide', handleKeyboardHide);
+
+    return () => {
+      frameSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, [insets.bottom, keyboardOffset]);
+
+  const handleFocus = () => {
+    inputRef.current?.focus();
+  };
 
   const toggleExpand = useCallback((expand: boolean) => {
     setIsExpanded(expand);
-    expandProgress.value = withTiming(expand ? 1 : 0, { 
+    expandProgress.value = withTiming(expand ? 1 : 0, {
       duration: 250,
       easing: Easing.bezier(0.25, 0.1, 0.25, 1) 
     });
 
     if (expand) {
-      setTimeout(() => inputRef.current?.focus(), 150);
-    } else {
+      requestAnimationFrame(handleFocus);
+    }
+
+    if (!expand) {
       Keyboard.dismiss();
       setText('');
     }
@@ -132,6 +159,7 @@ export function AIAgentFab() {
     return {
       width,
       left,
+      bottom: BOTTOM_MARGIN + insets.bottom + keyboardOffset.value,
       backgroundColor: finalColor,
       transform: [
         { scale: interpolate(recordingProgress.value, [0, 1], [1, 1.1]) },
@@ -141,29 +169,41 @@ export function AIAgentFab() {
   });
 
   const inputOpacityStyle = useAnimatedStyle(() => ({
-    opacity: interpolate(expandProgress.value, [0.6, 1], [0, 1]),
+    opacity: interpolate(expandProgress.value, [0.7, 1], [0, 1]),
+  }));
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(expandProgress.value, [0, 1], [0, 0.42]),
   }));
 
   return (
     <>
       {isExpanded && (
-        <Pressable style={StyleSheet.absoluteFill} onPress={() => toggleExpand(false)}>
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.02)' }]} />
+        <Pressable 
+          style={styles.backdrop} 
+          onPress={() => toggleExpand(false)}
+        >
+          <Animated.View style={[styles.backdropFill, backdropStyle]} />
         </Pressable>
       )}
 
       <GestureDetector gesture={composedGesture}>
-        <Animated.View style={[styles.fab, { bottom: BOTTOM_MARGIN + insets.bottom }, containerStyle]}>
+        <Animated.View 
+          style={[
+            styles.fab, 
+            containerStyle
+          ]}
+        >
           <View style={[
             styles.inner, 
             { flexDirection: side === 'left' ? 'row' : 'row-reverse' }
           ]}>
             
-            <Pressable onPress={handleIconPress}>
+            <Pressable onPress={handleIconPress} hitSlop={10}>
               <View style={styles.iconContainer}>
                 <SymbolView
                   name={isRecording ? "mic.fill" : (isExpanded && text.length > 0) ? "arrow.up.circle.fill" : "sparkles"}
-                  size={isExpanded && text.length > 0 ? 28 : 24}
+                  size={isExpanded && text.length > 0 ? 30 : 24}
                   tintColor={isRecording ? "white" : "#007AFF"}
                 />
               </View>
@@ -178,6 +218,8 @@ export function AIAgentFab() {
                 value={text}
                 onChangeText={setText}
                 textAlign="left"
+                editable={isExpanded}
+                autoCapitalize="none"
               />
             </Animated.View>
           </View>
@@ -188,6 +230,22 @@ export function AIAgentFab() {
 }
 
 const styles = StyleSheet.create({
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 900,
+  },
+  backdropFill: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: '#000000',
+  },
   fab: {
     position: 'absolute',
     height: FAB_SIZE,
@@ -206,8 +264,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   iconContainer: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -1,9 +1,10 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, SafeAreaView, ActivityIndicator,
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/context/AuthContext';
 import { API_CONFIG } from '@/constants/Config';
@@ -95,6 +96,10 @@ export default function LoginScreen() {
               onChangeText={setUsername} 
               autoCapitalize="none"
               autoCorrect={false}
+              autoComplete="username"
+              textContentType="username"
+              returnKeyType="next"
+              blurOnSubmit={false}
               placeholderTextColor="#A9A9AC"
             />
             <TextInput 
@@ -103,6 +108,10 @@ export default function LoginScreen() {
               value={password} 
               onChangeText={setPassword} 
               secureTextEntry
+              autoComplete="password"
+              textContentType="password"
+              returnKeyType="done"
+              onSubmitEditing={handleAuthentication}
               placeholderTextColor="#A9A9AC"
             />
 

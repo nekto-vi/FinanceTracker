@@ -75,6 +75,11 @@ export function AuthModal({ isVisible, onClose, onLoginSuccess }: Props) {
               value={username} 
               onChangeText={setUsername} 
               autoCapitalize="none" 
+              autoCorrect={false}
+              autoComplete="username"
+              textContentType="username"
+              returnKeyType="next"
+              blurOnSubmit={false}
               placeholderTextColor="#C7C7CC"
             />
             <TextInput 
@@ -83,6 +88,10 @@ export function AuthModal({ isVisible, onClose, onLoginSuccess }: Props) {
               value={password} 
               onChangeText={setPassword} 
               secureTextEntry 
+              autoComplete="password"
+              textContentType="password"
+              returnKeyType="done"
+              onSubmitEditing={handleAuth}
               placeholderTextColor="#C7C7CC"
             />
 

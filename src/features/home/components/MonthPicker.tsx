@@ -11,7 +11,6 @@ import {
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const ITEM_WIDTH = SCREEN_WIDTH - 40; 
-const currentYear = new Date().getFullYear();
 
 const MONTHS = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
@@ -21,10 +20,12 @@ const MONTHS = [
 interface Props {
   onMonthChange?: (index: number) => void;
   selectedMonth: number; 
+  selectedYear: number;  
 }
 
-export function MonthPicker({ onMonthChange, selectedMonth }: Props) {
+export function MonthPicker({ onMonthChange, selectedMonth, selectedYear }: Props) {
   const flatListRef = useRef<FlatList>(null);
+  
   const lastTrackedIndex = useRef(selectedMonth - 1);
 
   useEffect(() => {
@@ -44,7 +45,9 @@ export function MonthPicker({ onMonthChange, selectedMonth }: Props) {
     
     if (index !== lastTrackedIndex.current && index >= 0 && index < MONTHS.length) {
       lastTrackedIndex.current = index;
-      onMonthChange?.(index); 
+      if (onMonthChange) {
+        onMonthChange(index); 
+      }
     }
   };
 
@@ -58,13 +61,14 @@ export function MonthPicker({ onMonthChange, selectedMonth }: Props) {
         showsHorizontalScrollIndicator={false}
         pagingEnabled
         snapToInterval={ITEM_WIDTH}
+        snapToAlignment="center" 
         decelerationRate="fast"
-        onMomentumScrollEnd={handleMomentumScrollEnd} 
+        onMomentumScrollEnd={handleMomentumScrollEnd}
         scrollEventThrottle={16}
-        initialScrollIndex={selectedMonth - 1} 
+        initialScrollIndex={selectedMonth - 1}
         renderItem={({ item }) => (
           <View style={styles.monthWrapper}>
-            <Text style={styles.monthText}>{item} {currentYear}</Text>
+            <Text style={styles.monthText}>{item} {selectedYear}</Text>
           </View>
         )}
         getItemLayout={(_, index) => ({
@@ -80,7 +84,7 @@ export function MonthPicker({ onMonthChange, selectedMonth }: Props) {
 const styles = StyleSheet.create({
   container: {
     height: 40,
-    width: ITEM_WIDTH,
+    width: '100%', 
   },
   monthWrapper: {
     width: ITEM_WIDTH,
@@ -91,6 +95,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#000',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
 });
