@@ -1,23 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { FinanceColors } from '@/constants/theme';
 import { SymbolView } from 'expo-symbols';
-import * as SecureStore from 'expo-secure-store';
 import { AuthModal } from './AuthModal';
 import { useAuth } from '@/context/AuthContext';
 
 export default function SettingsScreen() {
   const [isAuthVisible, setIsAuthVisible] = useState(false);
-  const [username, setUsername] = useState<string | null>(null);
-  const { signOut } = useAuth();
-
-  useEffect(() => {
-    SecureStore.getItemAsync('username').then(val => setUsername(val));
-  }, []);
+  const { username, signOut } = useAuth();
 
   const handleLogout = async () => {
     await signOut(); 
-    setUsername(null); 
   };
 
   const SettingItem = ({ icon, title, value, onPress, color = "#8E8E93", isLast = false }: any) => (
@@ -47,7 +41,12 @@ export default function SettingsScreen() {
           <View style={styles.card}>
             {username ? (
               <>
-                <SettingItem icon="person.fill" title="Профиль" value={username} color="#007AFF" />
+                <SettingItem 
+                  icon="person.fill" 
+                  title="Профиль" 
+                  value={username} 
+                  color="#007AFF" 
+                />
                 <SettingItem 
                   icon="rectangle.portrait.and.arrow.right" 
                   title="Выйти" 
@@ -81,7 +80,7 @@ export default function SettingsScreen() {
       <AuthModal 
         isVisible={isAuthVisible} 
         onClose={() => setIsAuthVisible(false)} 
-        onLoginSuccess={(name: string) => setUsername(name)} 
+        onLoginSuccess={() => {}} 
       />
     </SafeAreaView>
   );

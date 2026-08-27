@@ -1,5 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Dimensions } from 'react-native';
+
+const { width: SCREEN_W } = Dimensions.get('window');
+const COLUMN_WIDTH = (SCREEN_W - 40 - 48) / 5;
 
 export type ExpenseCategory = {
   id: string;
@@ -16,8 +19,6 @@ type ExpenseGridProps = {
   onAddPress?: () => void;
 };
 
-const COLUMNS = 5;
-
 export function ExpenseGrid({
   categories,
   onCategoryPress,
@@ -25,67 +26,53 @@ export function ExpenseGrid({
 }: ExpenseGridProps) {
   return (
     <View style={styles.container}>
-      {Array.from({ length: Math.ceil((categories.length + 1) / COLUMNS) }).map(
-        (_, rowIndex) => {
-          const start = rowIndex * COLUMNS;
-          const end = start + COLUMNS;
-          const rowItems = categories.slice(start, end);
-          const isLastRow = end >= categories.length + 1;
-          const showAddButton = isLastRow && rowItems.length < COLUMNS;
+      {categories.map((cat) => (
+        <Pressable
+          key={cat.id}
+          style={styles.cell}
+          onPress={() => onCategoryPress?.(cat.id)}
+        >
+          <Text style={styles.name} numberOfLines={1}>
+            {cat.name}
+          </Text>
+          <View
+            style={[
+              styles.iconCircle,
+              { backgroundColor: cat.color + '20' }, // 20 = 12% opacity
+            ]}
+          >
+            <Text style={styles.icon}>{cat.icon}</Text>
+          </View>
+          <Text style={styles.amount} numberOfLines={1}>
+            {cat.amount} {cat.currency ?? 'BYN'}
+          </Text>
+        </Pressable>
+      ))}
 
-          return (
-            <View key={rowIndex} style={styles.row}>
-              {rowItems.map((cat) => (
-                <Pressable
-                  key={cat.id}
-                  style={styles.cell}
-                  onPress={() => onCategoryPress?.(cat.id)}
-                >
-                  <Text style={styles.name} numberOfLines={1}>
-                    {cat.name}
-                  </Text>
-                  <View
-                    style={[
-                      styles.iconCircle,
-                      { backgroundColor: cat.color + '20' }, 
-                    ]}
-                  >
-                    <Text style={styles.icon}>{cat.icon}</Text>
-                  </View>
-                  <Text style={styles.amount} numberOfLines={1}>
-                    {cat.amount} {cat.currency ?? 'BYN'}
-                  </Text>
-                </Pressable>
-              ))}
-
-              {showAddButton && (
-                <Pressable style={[styles.cell, styles.addCell]} onPress={onAddPress}>
-                    <View style={[styles.iconCircle, styles.addCircle]}>
-                        <Text style={styles.addIcon}>+</Text>
-                    </View>
-                </Pressable>
-              )}
-            </View>
-          );
-        }
-      )}
+      {/* Кнопка добавить */}
+      <Pressable style={styles.cell} onPress={onAddPress}>
+        <Text style={styles.name}></Text>
+        <View style={[styles.iconCircle, styles.addCircle]}>
+          <Text style={styles.addIcon}>+</Text>
+        </View>
+        <Text style={styles.amount}></Text>
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    gap: 16,
-  },
-  row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start', 
+    gap: 12, 
   },
   cell: {
-    flex: 1,
+    width: COLUMN_WIDTH, 
     alignItems: 'center',
     gap: 4,
+    marginBottom: 16,
   },
   iconCircle: {
     width: 56,
@@ -98,25 +85,21 @@ const styles = StyleSheet.create({
     fontSize: 28,
   },
   name: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#8E8E93',
-    marginTop: 2,
+    fontWeight: '500',
   },
   amount: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: '#000000',
   },
   addCircle: {
-    backgroundColor: '#E5E5EA',
+    backgroundColor: '#F2F2F7',
   },
   addIcon: {
-    fontSize: 28,
+    fontSize: 30,
     color: '#8E8E93',
     fontWeight: '300',
-    lineHeight: 32,
   },
-  addCell: {
-  paddingTop: 18, 
-},
 });
