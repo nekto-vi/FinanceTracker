@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Modal, View, Text, TextInput, StyleSheet, TouchableOpacity, 
-  ScrollView, Dimensions, Keyboard 
+import {
+  Modal, View, Text, TextInput, StyleSheet, TouchableOpacity,
+  ScrollView, Dimensions, Keyboard, Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 import * as SecureStore from 'expo-secure-store';
+
+import { API_CONFIG } from '@/constants/Config';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -21,6 +23,13 @@ interface Props {
 }
 
 const MONTHS = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+
+const formatLocalDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 export function AddExpenseModal({ 
   isVisible, 
@@ -66,7 +75,7 @@ export function AddExpenseModal({
     if (!token) return;
     try {
       const month = new Date().getMonth() + 1;
-      const res = await fetch(`http://127.0.0.1:8000/transactions/history?month=${month}`, {
+      const res = await fetch(`${API_CONFIG.BASE_URL}/transactions/history?month=${month}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -90,7 +99,7 @@ export function AddExpenseModal({
   const handleDelete = async (id: number) => {
     const token = await SecureStore.getItemAsync('userToken');
     try {
-      const res = await fetch(`http://127.0.0.1:8000/transactions/${id}`, {
+      const res = await fetch(`${API_CONFIG.BASE_URL}/transactions/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -105,14 +114,31 @@ export function AddExpenseModal({
   };
 
   const onFinalSave = () => {
+    const numericAmount = Number.parseFloat(amount);
+
+    if (!selectedAcc?.id) {
+      Alert.alert('Ошибка', 'Счёт не выбран');
+      return;
+    }
+
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      Alert.alert('Ошибка', 'Сумма должна быть больше нуля');
+      return;
+    }
+
+    if (type === 'expense' && !selectedCat?.id) {
+      Alert.alert('Ошибка', 'Для расхода выберите категорию');
+      return;
+    }
+
     onSave({
       id: editingTxId,
-      amount: parseFloat(amount),
-      account_id: selectedAcc?.id,
-      category_id: type === 'expense' ? selectedCat?.id : null, 
+      amount: numericAmount,
+      account_id: selectedAcc.id,
+      category_id: type === 'expense' ? selectedCat?.id : null,
       note: comment,
-      date: selectedDate.toISOString().split('T')[0],
-      type: type 
+      date: formatLocalDate(selectedDate),
+      type: type
     });
   };
 

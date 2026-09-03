@@ -22,6 +22,14 @@ const formatDateForBack = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+const getMondayOfWeek = (date: Date) => {
+  const normalized = new Date(date);
+  normalized.setHours(0, 0, 0, 0);
+  const day = normalized.getDay();
+  const diff = normalized.getDate() - day + (day === 0 ? -6 : 1);
+  return new Date(normalized.getFullYear(), normalized.getMonth(), diff);
+};
+
 const sortAccounts = (accountList: any[]) => [...accountList].sort((firstAccount, secondAccount) => {
   const accountOrder: Record<string, number> = { Карта: 0, Наличные: 1 };
   return (accountOrder[firstAccount.name] ?? 2) - (accountOrder[secondAccount.name] ?? 2);
@@ -31,7 +39,6 @@ export default function HomeScreen() {
   const router = useRouter();
   const { signOut } = useAuth();
 
-  // --- СОСТОЯНИЯ ---
   const [currentMonday, setCurrentMonday] = useState(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -41,6 +48,7 @@ export default function HomeScreen() {
   });
 
   const [selectedMonth, setSelectedMonth] = useState(currentMonday.getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(currentMonday.getFullYear());
   const [chartData, setChartData] = useState<ChartDay[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
@@ -49,7 +57,6 @@ export default function HomeScreen() {
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
   const [isAddCatModalVisible, setAddCatModalVisible] = useState(false);
   
-  // Режим модалки: трата или доход
   const [modalMode, setModalMode] = useState<'expense' | 'income'>('expense');
 
   const orderedAccounts = sortAccounts(accounts);
@@ -58,15 +65,16 @@ export default function HomeScreen() {
     await signOut();
   };
 
-  const refreshAllData = async (monday: Date) => {
+  const refreshAllData = async (monday: Date, explicitMonth?: number, explicitYear?: number) => {
     const token = await SecureStore.getItemAsync('userToken');
     if (!token) return;
 
-    const month = monday.getMonth() + 1;
-    const year = monday.getFullYear();
+    const month = explicitMonth ?? selectedMonth;
+    const year = explicitYear ?? selectedYear;
     const dateStr = formatDateForBack(monday);
 
-    if (month !== selectedMonth) setSelectedMonth(month);
+    if (explicitMonth != null && explicitMonth !== selectedMonth) setSelectedMonth(explicitMonth);
+    if (explicitYear != null && explicitYear !== selectedYear) setSelectedYear(explicitYear);
 
     try {
       const headers = { 'Authorization': `Bearer ${token}` };
@@ -102,8 +110,13 @@ export default function HomeScreen() {
         const accsData = Array.isArray(accountsResponse) ? accountsResponse : [];
         const statsData = Array.isArray(weeklyResponse) ? weeklyResponse : [];
         const sortedAccounts = sortAccounts(accsData);
+        const normalizedCategories = catsData.map((category: any) => ({
+          ...category,
+          icon: category.emoji ?? category.icon,
+          amount: Math.abs(Number(category.amount ?? 0)),
+        }));
 
-        setCategories(catsData.map((category: any) => ({ ...category, icon: category.emoji })));
+        setCategories(normalizedCategories);
         setAccounts(sortedAccounts);
         setMonthlyProfit(summaryData.profit ?? 0);
         setChartData(statsData);
@@ -118,10 +131,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     refreshAllData(currentMonday);
-  }, [currentMonday]);
-
-  // --- ОБРАБОТЧИКИ ---
-
+  }, [currentMonday, selectedMonth, selectedYear]);
 
 const handleOnConfirmCategory = async (newCat: any) => {
   const token = await SecureStore.getItemAsync('userToken');
@@ -174,6 +184,8 @@ const handleOnConfirmCategory = async (newCat: any) => {
     const day = firstDay.getDay();
     const diff = firstDay.getDate() - day + (day === 0 ? -6 : 1);
     const firstMonday = new Date(firstDay.getFullYear(), firstDay.getMonth(), diff);
+    setSelectedMonth(newMonth);
+    setSelectedYear(firstDay.getFullYear());
     setCurrentMonday(firstMonday);
   };
 
@@ -190,40 +202,94 @@ const handleOnConfirmCategory = async (newCat: any) => {
   };
 
   const handleSaveExpense = async (data: any) => {
-    if (!selectedAccountId) return;
+    const accountId = Number(data.account_id ?? selectedAccountId ?? 0);
+    const amountValue = Number(data.amount ?? 0);
+    const categoryId = data.category_id ?? null;
+
+    if (!accountId) {
+      Alert.alert('Ошибка', 'Сначала выберите счёт');
+      return;
+    }
+
+    if (!Number.isFinite(amountValue) || amountValue <= 0) {
+      Alert.alert('Ошибка', 'Сумма операции должна быть больше нуля');
+      return;
+    }
+
+    if (data.type === 'expense' && !categoryId) {
+      Alert.alert('Ошибка', 'Для расхода нужно выбрать категорию');
+      return;
+    }
+
     const token = await SecureStore.getItemAsync('userToken');
+    if (!token) {
+      Alert.alert('Ошибка', 'Вы не авторизованы');
+      return;
+    }
 
     try {
       const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.TRANSACTIONS}`, {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          amount: data.amount,
-          account_id: data.account_id,
-          category_id: data.category_id, // Может быть null для дохода
-          note: data.note,   
+          amount: amountValue,
+          account_id: accountId,
+          category_id: categoryId,
+          note: data.note,
           date: data.date,
-          type: data.type // Используем тип из модалки (income/expense)
+          type: data.type
         }),
       });
 
-      if (response.ok) {
-        refreshAllData(currentMonday); 
-        setSelectedCategory(null);
+      if (!response.ok) {
+        const errorBody = await response.text();
+        let detail = 'Не удалось сохранить операцию';
+        try {
+          const parsed = JSON.parse(errorBody);
+          detail = parsed.detail || detail;
+        } catch {
+          detail = errorBody || detail;
+        }
+
+        if (response.status === 401) {
+          await handleLogout();
+          return;
+        }
+
+        Alert.alert('Ошибка', detail);
+        return;
       }
+
+      if (data.type === 'expense' && categoryId != null) {
+        setCategories((prev) => prev.map((category) => (
+          String(category.id) === String(categoryId)
+            ? { ...category, amount: Number(category.amount ?? 0) + amountValue }
+            : category
+        )));
+      }
+
+      const savedDate = data.date ? new Date(`${data.date}T00:00:00`) : new Date();
+      const nextMonday = getMondayOfWeek(savedDate);
+      const monthForRequest = savedDate.getMonth() + 1;
+      const yearForRequest = savedDate.getFullYear();
+
+      setSelectedMonth(monthForRequest);
+      setSelectedYear(yearForRequest);
+      setCurrentMonday(nextMonday);
+      await refreshAllData(nextMonday, monthForRequest, yearForRequest);
+      setSelectedCategory(null);
     } catch (e) {
-      console.error(e);
+      console.error('Ошибка при сохранении операции:', e);
+      Alert.alert('Ошибка', 'Нет связи с сервером');
     }
   };
 
-  // Открытие окна пополнения баланса
   const openTopUp = (accId: number) => {
     setSelectedAccountId(accId);
     setModalMode('income');
-    // Используем фейковую категорию, чтобы сработал isVisible модалки
     setSelectedCategory({ name: 'Пополнение', id: null });
   };
 
@@ -308,7 +374,7 @@ const handleOnConfirmCategory = async (newCat: any) => {
         onClose={() => setSelectedCategory(null)}
         onSave={handleSaveExpense}
       />
-      <AIAgentFab />
+      <AIAgentFab onSuccess={() => refreshAllData(currentMonday)} />
     </SafeAreaView>
   );
 }
