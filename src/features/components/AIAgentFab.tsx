@@ -20,6 +20,7 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SymbolView } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useChat } from '@/context/ChatContext';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const FAB_SIZE = 56;
@@ -31,7 +32,12 @@ const EXPANDED_WIDTH = SCREEN_W - SIDE_MARGIN * 2;
 const LEFT_EDGE = SIDE_MARGIN;
 const RIGHT_EDGE = SCREEN_W - FAB_SIZE - SIDE_MARGIN;
 
-export function AIAgentFab() {
+type AIAgentFabProps = {
+  onSuccess?: (transaction: any) => void;
+};
+
+export function AIAgentFab({ onSuccess }: { onSuccess?: (data: any) => void }) {
+  const { sendMessage } = useChat();
   const insets = useSafeAreaInsets();
   const [isExpanded, setIsExpanded] = useState(false);
   const [side, setSide] = useState<'left' | 'right'>('right');
@@ -88,17 +94,29 @@ export function AIAgentFab() {
     }
   }, []);
 
-  const handleIconPress = () => {
+  const handleIconPress = async () => {
     if (!isExpanded) {
       toggleExpand(true);
     } else if (text.length === 0) {
       toggleExpand(false);
     } else {
+      // Анимация вспышки кнопки
       flashAnim.value = withSequence(
         withTiming(1, { duration: 100 }),
         withTiming(0, { duration: 100 })
       );
-      console.log('ИИ обрабатывает запрос:', text);
+
+      const messageText = text.trim();
+      setText('');
+      toggleExpand(false);
+
+      // Отправляем сообщение через чат-контекст
+      const transaction = await sendMessage(messageText);
+      
+      // Если транзакция успешно создана, уведомляем Главный экран
+      if (transaction && onSuccess) {
+        onSuccess(transaction);
+      }
     }
   };
 

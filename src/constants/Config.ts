@@ -12,7 +12,7 @@ interface ApiConfig {
 }
 
 export const API_CONFIG = {
-  BASE_URL: process.env.EXPO_PUBLIC_API_URL || 'http://127.0.0.1:8000',
+  BASE_URL: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000',
   ENDPOINTS: {
     LOGIN: '/auth/login',
     REGISTER: '/auth/register',
