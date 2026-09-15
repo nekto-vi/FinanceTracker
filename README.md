@@ -14,8 +14,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com">📱 Frontend Репозиторий</a> • 
-  <a href="https://github.com-Backend">⚙️ Backend Репозиторий</a>
+  <a href="https://github.com/nekto-vi/FinanceTracker">📱 Frontend Репозиторий</a> • 
+  <a href="https://github.com/nekto-vi/FinanceTracker-Backend">⚙️ Backend Репозиторий</a>
 </p>
 
 ---
@@ -70,14 +70,14 @@
 
 ## 🛠️ Стек технологий
 
-### Frontend ([FinanceTracker](https://github.com))
+### Frontend ([FinanceTracker](https://github.com/nekto-vi/FinanceTracker))
 * **Фреймворк:** [React Native](https://reactnative.dev) / [Expo SDK 57](https://expo.dev)
 * **Язык:** TypeScript
 * **Навигация:** [Expo Router](https://expo.dev) (файловая маршрутизация, вкладки)
 * **Стили и UI:** Tailwind CSS, iOS Design Guidelines, Lucide Icons
 * **Состояние и хранилище:** React Context API, `expo-secure-store` / LocalStorage
 
-### Backend ([FinanceTracker-Backend](https://github.com-Backend))
+### Backend ([FinanceTracker-Backend](https://github.com/nekto-vi/FinanceTracker-Backend))
 * **Фреймворк:** [FastAPI](https://tiangolo.com) (Python 3.12+)
 * **База данных:** SQLite / PostgreSQL, SQLAlchemy ORM
 * **Валидация данных:** Pydantic v2
@@ -91,12 +91,12 @@
 ### 1. Клонирование репозиториев
 ```bash
 # Клонируем клиентскую и серверную части
-git clone https://github.com.git FinanceTracker
-git clone https://github.com-Backend.git FinanceTracker-Backend
+git clone https://github.com/nekto-vi/FinanceTracker.git
+git clone https://github.com/nekto-vi/FinanceTracker-Backend.git
 ```
 
 ### 2. Запуск бэкенда через Docker 🐳
-Серверная часть и база данных запускаются одной командой:
+Серверная часть и база данных поднимаются одной командой:
 ```bash
 cd FinanceTracker-Backend
 docker compose up -d --build
@@ -127,10 +127,10 @@ cd ../FinanceTracker
 # Установка зависимостей
 npm install
 
-# Запуск среды Expo
+# Запуск Expo
 npx expo start
 ```
-> Отсканируйте появившийся QR-код через приложение **Expo Go** на телефоне (iOS / Android) или нажмите `w` в терминале для запуска в веб-браузере.
+> Отсканируйте появившийся QR-код камерой телефона в приложении **Expo Go** (iOS / Android) или нажмите `w` в терминале для запуска в веб-версии.
 
 ---
 
