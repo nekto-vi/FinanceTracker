@@ -72,14 +72,14 @@
 ## 🛠️ Стек технологий
 
 ### Frontend ([FinanceTracker](https://github.com/nekto-vi/FinanceTracker))
-* **Фреймворк:** [React Native](https://reactnative.dev) / [Expo SDK 57](https://expo.dev)
+* **Фреймворк:** React Native / Expo SDK 57
 * **Язык:** TypeScript
-* **Навигация:** [Expo Router](https://expo.dev) (вкладки, стеки)
+* **Навигация:** Expo Router (вкладки, стеки)
 * **Стили и UI:** Tailwind CSS, iOS Guidelines, Lucide Icons
 * **Состояние и хранилище:** React Context API, `expo-secure-store`
 
 ### Backend ([FinanceTracker-Backend](https://github.com/nekto-vi/FinanceTracker-Backend))
-* **Язык и фреймворк:** Python 3.12+, [FastAPI](https://tiangolo.com) (Uvicorn, Starlette)
+* **Язык и фреймворк:** Python 3.12+, FastAPI (Uvicorn, Starlette)
 * **База данных:** PostgreSQL, SQLAlchemy ORM + Psycopg2
 * **Валидация:** Pydantic
 * **Аутентификация:** JWT (`python-jose`, HS256), хеширование паролей (`passlib`, `bcrypt`)
