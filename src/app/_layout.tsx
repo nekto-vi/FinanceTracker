@@ -3,6 +3,7 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { ChatProvider } from '@/context/ChatContext';
 
 function NavigationGuard() {
   const { userToken, isLoading } = useAuth();
@@ -38,7 +39,9 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.flex}>
       <AuthProvider>
-        <NavigationGuard />
+        <ChatProvider>
+          <NavigationGuard />
+        </ChatProvider>
       </AuthProvider>
     </GestureHandlerRootView>
   );

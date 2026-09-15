@@ -14,6 +14,10 @@ import { MonthPicker } from './components/MonthPicker';
 import { AddExpenseModal } from '@/features/home/AddExpenseModal';
 import { useAuth } from '@/context/AuthContext';
 import { API_CONFIG } from '@/constants/Config';
+import { useChat } from '@/context/ChatContext';
+
+import { useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
 
 const formatDateForBack = (date: Date) => {
   const year = date.getFullYear();
@@ -38,6 +42,7 @@ const sortAccounts = (accountList: any[]) => [...accountList].sort((firstAccount
 export default function HomeScreen() {
   const router = useRouter();
   const { signOut } = useAuth();
+  const { addTransactionMessages } = useChat();
 
   const [currentMonday, setCurrentMonday] = useState(() => {
     const today = new Date();
@@ -128,6 +133,12 @@ export default function HomeScreen() {
         console.error("Ошибка сети:", e);
       }
   };
+
+useFocusEffect(
+  useCallback(() => {
+    refreshAllData(currentMonday);
+  }, [currentMonday, selectedMonth, selectedYear])
+);
 
   useEffect(() => {
     refreshAllData(currentMonday);
@@ -280,6 +291,12 @@ const handleOnConfirmCategory = async (newCat: any) => {
       setSelectedYear(yearForRequest);
       setCurrentMonday(nextMonday);
       await refreshAllData(nextMonday, monthForRequest, yearForRequest);
+      const operationName = data.note?.trim() || (data.type === 'income' ? 'Пополнение счёта' : 'Расход');
+      const operationLabel = data.type === 'income' ? 'пополнение' : 'расход';
+      await addTransactionMessages(
+        `${operationLabel}: ${amountValue} BYN, ${operationName}`,
+        `${data.type === 'income' ? 'Добавил пополнение' : 'Записал расход'} ${amountValue} BYN на ${operationName}`,
+      );
       setSelectedCategory(null);
     } catch (e) {
       console.error('Ошибка при сохранении операции:', e);
@@ -374,7 +391,19 @@ const handleOnConfirmCategory = async (newCat: any) => {
         onClose={() => setSelectedCategory(null)}
         onSave={handleSaveExpense}
       />
-      <AIAgentFab onSuccess={() => refreshAllData(currentMonday)} />
+      <AIAgentFab onSuccess={(transaction) => {
+        setAccounts((currentAccounts) => currentAccounts.map((account) => (
+          String(account.id) === String(transaction.account_id)
+            ? { ...account, balance: Number(account.balance ?? 0) - Number(transaction.amount) }
+            : account
+        )));
+        setCategories((currentCategories) => currentCategories.map((category) => (
+          String(category.id) === String(transaction.category_id)
+            ? { ...category, amount: Number(category.amount ?? 0) + Number(transaction.amount) }
+            : category
+        )));
+        void refreshAllData(currentMonday);
+      }} />
     </SafeAreaView>
   );
 }

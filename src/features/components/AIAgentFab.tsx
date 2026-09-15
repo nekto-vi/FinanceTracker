@@ -6,9 +6,7 @@ import {
   Keyboard,
   Pressable,
   View,
-  Alert,
 } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -22,7 +20,7 @@ import Animated, {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { SymbolView } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { API_CONFIG } from '@/constants/Config';
+import { useChat } from '@/context/ChatContext';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const FAB_SIZE = 56;
@@ -35,10 +33,11 @@ const LEFT_EDGE = SIDE_MARGIN;
 const RIGHT_EDGE = SCREEN_W - FAB_SIZE - SIDE_MARGIN;
 
 type AIAgentFabProps = {
-  onSuccess?: () => void;
+  onSuccess?: (transaction: any) => void;
 };
 
-export function AIAgentFab({ onSuccess }: AIAgentFabProps) {
+export function AIAgentFab({ onSuccess }: { onSuccess?: (data: any) => void }) {
+  const { sendMessage } = useChat();
   const insets = useSafeAreaInsets();
   const [isExpanded, setIsExpanded] = useState(false);
   const [side, setSide] = useState<'left' | 'right'>('right');
@@ -96,44 +95,30 @@ export function AIAgentFab({ onSuccess }: AIAgentFabProps) {
   }, []);
 
   const handleIconPress = async () => {
-  if (!isExpanded) {
-    toggleExpand(true);
-  } else if (text.length === 0) {
-    toggleExpand(false);
-  } else {
-    // Эффект вспышки
-    flashAnim.value = withSequence(
-      withTiming(1, { duration: 100 }),
-      withTiming(0, { duration: 100 })
-    );
+    if (!isExpanded) {
+      toggleExpand(true);
+    } else if (text.length === 0) {
+      toggleExpand(false);
+    } else {
+      // Анимация вспышки кнопки
+      flashAnim.value = withSequence(
+        withTiming(1, { duration: 100 }),
+        withTiming(0, { duration: 100 })
+      );
 
-    const token = await SecureStore.getItemAsync('userToken');
-    
-    try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}/ai/process`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ text }),
-      });
+      const messageText = text.trim();
+      setText('');
+      toggleExpand(false);
 
-      if (response.ok) {
-        const result = await response.json();
-        onSuccess?.();
-        Alert.alert("ИИ Ассистент", `Записал расход ${result.data.amount} BYN на ${result.data.note}`);
-        setText(''); 
-        toggleExpand(false);
-      } else {
-        const error = await response.json();
-        Alert.alert("Ошибка", error.detail || "ИИ не смог обработать запрос");
+      // Отправляем сообщение через чат-контекст
+      const transaction = await sendMessage(messageText);
+      
+      // Если транзакция успешно создана, уведомляем Главный экран
+      if (transaction && onSuccess) {
+        onSuccess(transaction);
       }
-    } catch (e) {
-      Alert.alert("Ошибка", `${e}`);
     }
-  }
-};
+  };
 
   const tapGesture = Gesture.Tap()
     .enabled(!isExpanded)
